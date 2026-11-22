@@ -436,8 +436,45 @@ def change_password():
 @auth.role_required("admin")
 def users():
     db = get_db()
-    rows = db.execute("SELECT * FROM users ORDER BY role, username").fetchall()
-    return render_template("users.html", users=rows, roles=auth.ROLES, role_labels=auth.ROLE_LABELS)
+    rows = db.execute(
+        "SELECT u.*, ("
+        "  SELECT MAX(created_at) FROM activity a WHERE a.user_id = u.id"
+        ") AS last_active FROM users u ORDER BY "
+        "CASE role WHEN 'admin' THEN 0 WHEN 'editor' THEN 1 ELSE 2 END, username").fetchall()
+    me = auth.current_user(db)
+    stats = {
+        "total": len(rows),
+        "admins": sum(1 for r in rows if r["role"] == "admin"),
+        "active": sum(1 for r in rows if r["active"]),
+        "inactive": sum(1 for r in rows if not r["active"]),
+    }
+    return render_template("users.html", users=rows, roles=auth.ROLES,
+                           role_labels=auth.ROLE_LABELS, stats=stats,
+                           permissions=auth.PERMISSION_MATRIX, me_id=me["id"] if me else None)
+
+
+@app.route("/users/<int:uid>/delete", methods=["POST"])
+@auth.role_required("admin")
+def users_delete(uid):
+    db = get_db()
+    me = auth.current_user(db)
+    if me and me["id"] == uid:
+        flash("You can't delete your own account.")
+        return redirect(url_for("users"))
+    target = db.execute("SELECT username, role FROM users WHERE id=?", (uid,)).fetchone()
+    if not target:
+        abort(404)
+    # never remove the last admin — the system must keep at least one
+    if target["role"] == "admin":
+        n_admin = db.execute("SELECT COUNT(*) n FROM users WHERE role='admin' AND active=1").fetchone()["n"]
+        if n_admin <= 1:
+            flash("Can't delete the only admin account. Make another user an admin first.")
+            return redirect(url_for("users"))
+    db.execute("DELETE FROM users WHERE id=?", (uid,))
+    db.commit()
+    auth.log_activity(db, me["id"], None, "users", f"deleted account '{target['username']}'")
+    flash(f"Account '{target['username']}' deleted.")
+    return redirect(url_for("users"))
 
 
 @app.route("/users/add", methods=["POST"])

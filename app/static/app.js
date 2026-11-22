@@ -109,7 +109,7 @@
       cmds.push({ ic: "↥", label: "Import scan results", sub: "", href: url("import_scan") });
       cmds.push({ ic: "☖", label: "Asset owners", sub: "", href: url("owners") });
     }
-    if (window.__IS_ADMIN) cmds.push({ ic: "✦", label: "Manage users", sub: "", href: url("users") });
+    if (window.__IS_ADMIN) cmds.push({ ic: "✦", label: "Admin console", sub: "", href: url("users") });
     cmds.push({ ic: "◐", label: "Toggle light / dark theme", sub: "t", action: toggleTheme });
     return cmds;
   }

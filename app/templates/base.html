@@ -42,7 +42,7 @@
       <a href="{{ url_for('import_scan') }}" class="{{ 'active' if ep == 'import_scan' }}">Import</a>
       <a href="{{ url_for('owners') }}" class="{{ 'active' if ep == 'owners' }}">Owners</a>
       {% endif %}
-      {% if is_admin %}<a href="{{ url_for('users') }}" class="{{ 'active' if ep == 'users' }}">Users</a>{% endif %}
+      {% if is_admin %}<a href="{{ url_for('users') }}" class="{{ 'active' if ep == 'users' }}">Admin</a>{% endif %}
       {% if is_admin %}<a href="{{ url_for('settings_page') }}" class="{{ 'active' if ep and ep.startswith('settings') }}">Settings</a>{% endif %}
       {% if can_import_or_scan %}<a href="{{ url_for('finding_new') }}">+ Add</a>{% endif %}
       {% if can_import_or_scan %}<a href="{{ url_for('scan_page') }}" class="primary">Run scan</a>{% endif %}

@@ -27,6 +27,23 @@ ROLE_LABELS = {
     "editor": "Editor (security team)",
     "viewer": "Viewer / commenter",
 }
+ROLE_SUMMARY = {
+    "admin": "Full control, plus managing accounts and settings.",
+    "editor": "The security team: scan, import, and edit the register, findings, phishing and feeds.",
+    "viewer": "Read-only across the app, with the ability to comment.",
+}
+
+# What each access level can do — drives the matrix on the admin console and
+# documents the role_required() gates enforced on the routes.
+PERMISSION_MATRIX = [
+    ("View dashboards, findings & reports", {"admin": True, "editor": True, "viewer": True}),
+    ("Comment on findings", {"admin": True, "editor": True, "viewer": True}),
+    ("Edit findings & change remediation status", {"admin": True, "editor": True, "viewer": False}),
+    ("Run / import scans & manage the asset register", {"admin": True, "editor": True, "viewer": False}),
+    ("Run phishing campaigns & threat-feed updates", {"admin": True, "editor": True, "viewer": False}),
+    ("Change settings & compliance frameworks", {"admin": True, "editor": False, "viewer": False}),
+    ("Manage user accounts & access levels", {"admin": True, "editor": False, "viewer": False}),
+]
 
 
 # ---------------------------------------------------------------------------

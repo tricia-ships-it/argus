@@ -1,59 +1,121 @@
 {% extends "base.html" %}
-{% block title %}Users · Argus{% endblock %}
+{% block title %}Admin console · Argus{% endblock %}
 {% block body %}
-<h1>User accounts</h1>
-<p class="lede">Create accounts for your team. Editors (security team) and admins can change findings; viewers can see everything and comment, and can update findings they own.</p>
 
-<div class="panel">
-  <h2>Add a user</h2>
-  <form method="post" action="{{ url_for('users_add') }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <div class="form-grid">
-      <div class="field"><label>Username</label><input name="username" required placeholder="e.g. a.mensah"></div>
-      <div class="field"><label>Display name</label><input name="display_name" placeholder="e.g. Ama Mensah"></div>
-      <div class="field"><label>Email (optional)</label><input name="email" type="email"></div>
-      <div class="field"><label>Role</label>
-        <select name="role">
-          {% for r in roles %}<option value="{{ r }}" {{ 'selected' if r=='viewer' }}>{{ role_labels[r] }}</option>{% endfor %}
-        </select>
+<div class="page-head">
+  <div>
+    <h1>Admin console</h1>
+    <p class="lede">Manage who can sign in and what they can do. Every team member uses their own account and sees the app according to their access level.</p>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="n count" data-count="{{ stats.total }}">{{ stats.total }}</div><div class="l">Accounts</div></div>
+  <div class="stat" style="--accent:var(--accent)"><div class="n count" data-count="{{ stats.admins }}">{{ stats.admins }}</div><div class="l">Admins</div></div>
+  <div class="stat" style="--accent:var(--low)"><div class="n count" data-count="{{ stats.active }}">{{ stats.active }}</div><div class="l">Active</div></div>
+  <div class="stat"><div class="n count" data-count="{{ stats.inactive }}">{{ stats.inactive }}</div><div class="l">Inactive</div></div>
+</div>
+
+<div class="detail-grid">
+  <div class="detail-main">
+    <div class="card">
+      <h3>Team &amp; access</h3>
+      <div class="table-scroll">
+      <table class="grid" style="min-width:760px">
+        <thead><tr><th>User</th><th>Email</th><th>Access level</th><th>Status</th><th>Last active</th><th></th></tr></thead>
+        <tbody>
+          {% for u in users %}
+          <tr class="{{ 'inactive-row' if not u.active }}">
+            <td>
+              <div>{{ u.display_name or u.username }}{% if u.id == me_id %} <span class="pill">you</span>{% endif %}</div>
+              <div class="muted mono" style="font-size:11px">{{ u.username }}</div>
+            </td>
+            <td class="muted">{{ u.email or '—' }}</td>
+            <td>
+              <form method="post" action="{{ url_for('users_role', uid=u.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <select name="role" class="statussel" onchange="this.form.submit()" {{ 'disabled' if u.id == me_id }}>
+                  {% for r in roles %}<option value="{{ r }}" {{ 'selected' if u.role==r }}>{{ role_labels[r] }}</option>{% endfor %}
+                </select>
+              </form>
+            </td>
+            <td>{% if u.active %}<span class="rto Met">Active</span>{% else %}<span class="muted">Inactive</span>{% endif %}</td>
+            <td class="mono muted nowrap" style="font-size:11.5px">{{ u.last_active[:16].replace('T',' ') if u.last_active else '—' }}</td>
+            <td class="nowrap row-actions">
+              <details class="umenu">
+                <summary class="btn sm ghost">Manage</summary>
+                <div class="umenu-pop">
+                  {% if u.id != me_id %}
+                  <form method="post" action="{{ url_for('users_active', uid=u.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <button class="umenu-item" type="submit">{{ 'Deactivate' if u.active else 'Reactivate' }}</button>
+                  </form>
+                  {% endif %}
+                  <form method="post" action="{{ url_for('users_reset', uid=u.id) }}" class="umenu-reset"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <input name="password" placeholder="new password (min 8)">
+                    <button class="btn sm" type="submit">Reset password</button>
+                  </form>
+                  {% if u.id != me_id %}
+                  <form method="post" action="{{ url_for('users_delete', uid=u.id) }}" onsubmit="return confirm('Delete {{ u.username }}? Their past activity is kept but the account is removed.')"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                    <button class="umenu-item danger" type="submit">Delete account</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </details>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
       </div>
-      <div class="field"><label>Initial password</label><input name="password" required>
-        <span class="hint">Share it securely. They'll set their own at first sign-in if you use Reset, or can change it anytime.</span>
-      </div>
+      <p class="note">Deactivating blocks sign-in immediately but keeps the person's past comments and activity. Resetting a password forces them to choose a new one next sign-in. The system always keeps at least one admin.</p>
     </div>
-    <div class="form-actions"><button class="btn primary" type="submit">Create account</button></div>
-  </form>
+
+    <div class="card">
+      <h3>Add a team member</h3>
+      <form method="post" action="{{ url_for('users_add') }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <div class="form-grid">
+          <div class="field"><label>Username</label><input name="username" required placeholder="e.g. a.mensah"></div>
+          <div class="field"><label>Display name</label><input name="display_name" placeholder="e.g. Ama Mensah"></div>
+          <div class="field"><label>Email (optional)</label><input name="email" type="email"></div>
+          <div class="field"><label>Access level</label>
+            <select name="role">
+              {% for r in roles %}<option value="{{ r }}" {{ 'selected' if r=='viewer' }}>{{ role_labels[r] }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field"><label>Initial password</label><input name="password" required>
+            <span class="hint">Share it securely. They can change it after signing in.</span>
+          </div>
+        </div>
+        <div class="form-actions"><button class="btn primary" type="submit">Create account</button></div>
+      </form>
+    </div>
+  </div>
+
+  <aside class="detail-side">
+    <div class="card">
+      <h3>Access levels</h3>
+      <p class="card-sub">What each level can do. Change a person's level anytime in the table.</p>
+      <table class="perm-matrix">
+        <thead><tr><th></th>{% for r in roles %}<th>{{ role_labels[r].split(' ')[0] }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for label, caps in permissions %}
+          <tr><td>{{ label }}</td>
+            {% for r in roles %}<td class="pm-cell">{% if caps[r] %}<span class="pm-yes">✓</span>{% else %}<span class="pm-no">·</span>{% endif %}</td>{% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </aside>
 </div>
 
-<div class="table-scroll">
-<table class="grid" style="min-width:820px">
-  <thead><tr><th>Username</th><th>Display name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
-  <tbody>
-    {% for u in users %}
-    <tr class="{{ 'inactive-row' if not u.active }}">
-      <td class="mono">{{ u.username }}</td>
-      <td>{{ u.display_name or '—' }}</td>
-      <td class="muted">{{ u.email or '—' }}</td>
-      <td>
-        <form method="post" action="{{ url_for('users_role', uid=u.id) }}" style="display:flex;gap:6px;align-items:center"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <select name="role" class="statussel" onchange="this.form.submit()">
-            {% for r in roles %}<option value="{{ r }}" {{ 'selected' if u.role==r }}>{{ role_labels[r] }}</option>{% endfor %}
-          </select>
-        </form>
-      </td>
-      <td>{% if u.active %}<span class="rto Met">Active</span>{% else %}<span class="muted">Inactive</span>{% endif %}</td>
-      <td class="nowrap">
-        <form method="post" action="{{ url_for('users_active', uid=u.id) }}" style="display:inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <button class="btn sm ghost" type="submit">{{ 'Deactivate' if u.active else 'Reactivate' }}</button>
-        </form>
-        <form method="post" action="{{ url_for('users_reset', uid=u.id) }}" style="display:inline-flex;gap:4px;align-items:center"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <input name="password" placeholder="new password" style="background:var(--panel-2);border:1px solid var(--line);color:var(--ink);padding:4px 7px;border-radius:5px;font-size:12px;width:120px">
-          <button class="btn sm" type="submit">Reset</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-<p class="note">Deactivating an account blocks sign-in immediately but keeps that person's past comments and activity. Resetting a password forces them to choose a new one next time they sign in.</p>
+{% endblock %}
+{% block scripts %}
+<script>
+// close any open Manage menu when clicking elsewhere
+document.addEventListener('click', function (e) {
+  document.querySelectorAll('details.umenu[open]').forEach(function (d) {
+    if (!d.contains(e.target)) d.removeAttribute('open');
+  });
+});
+</script>
 {% endblock %}
