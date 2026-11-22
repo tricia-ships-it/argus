@@ -120,7 +120,7 @@
         {% else %}<b class="risk-text">not configured</b>{% endif %}
       </div>
       {% if not provider_ready %}
-      <p class="card-sub">Set this channel's credentials in the server environment, then reload. Argus reads provider secrets from the environment only — never from this page — so they stay out of the database. See <a href="{{ url_for('settings_page') }}">Settings</a> for the variable names.</p>
+      <p class="card-sub">Set this channel's credentials in the server environment, then reload. Argus reads provider secrets from the environment only — never from this page — so they stay out of the database. See <a href="{{ url_for('settings_page', section='delivery') }}">delivery settings</a> for the variable names.</p>
       {% endif %}
 
       {% if not c.authorized %}

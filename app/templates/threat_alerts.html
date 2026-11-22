@@ -10,7 +10,7 @@
     <ul class="nb-list">
       {% for u in unhealthy %}<li><b>{{ u.name }}</b> — {{ u.detail or 'last fetch failed' }}{% if u.checked_at %} <span class="muted">({{ u.checked_at[:16].replace('T',' ') }})</span>{% endif %}</li>{% endfor %}
     </ul>
-    <a href="{{ url_for('settings_page') }}">Review feed sources →</a>
+    <a href="{{ url_for('settings_page', section='feeds') }}">Review feed sources →</a>
   </div>
 </div>
 {% endif %}
@@ -21,15 +21,15 @@
     <p class="lede">Public vulnerability feeds matched against your findings and asset inventory — locally. Actively-exploited (CISA KEV) issues that touch your estate are raised first.</p>
   </div>
   <div class="head-actions">
-    <a class="btn ghost" href="{{ url_for('settings_page') }}">Feed settings</a>
+    <a class="btn ghost" href="{{ url_for('settings_page', section='feeds') }}">Feed settings</a>
   </div>
 </div>
 
 {% if not feed_count %}
 <div class="empty">
   <h3>No threat feed loaded yet</h3>
-  <p>Load a feed to start matching. Either enable online updates in <a href="{{ url_for('settings_page') }}">Settings</a> and run an update, or import a feed file produced by <span class="mono">feedsync.py</span> on a connected machine. Matching happens entirely on this box — nothing about your assets is sent anywhere.</p>
-  <a class="btn primary" href="{{ url_for('settings_page') }}">Go to feed settings</a>
+  <p>Load a feed to start matching. Either enable online updates in <a href="{{ url_for('settings_page', section='feeds') }}">Settings</a> and run an update, or import a feed file produced by <span class="mono">feedsync.py</span> on a connected machine. Matching happens entirely on this box — nothing about your assets is sent anywhere.</p>
+  <a class="btn primary" href="{{ url_for('settings_page', section='feeds') }}">Go to feed settings</a>
 </div>
 {% else %}
 <div class="stats" title="Click to filter the alerts">

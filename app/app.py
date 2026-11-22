@@ -605,9 +605,10 @@ def dashboard_data():
         rr = r["reported_risk"]
         if rr in by_reported:
             by_reported[rr] += 1
-        st = r["remediation_status"]
-        if st in by_status:
-            by_status[st] += 1
+        st = r["remediation_status"] or "Pending"
+        # count every status, even one outside the canonical list, so the
+        # remediation chart always reconciles with the total finding count
+        by_status[st] = by_status.get(st, 0) + 1
         rto = r["risk_tolerance_objective"]
         if rto in ("Met", "Breached", "Not Applicable"):
             by_rto[rto] += 1
@@ -1077,12 +1078,15 @@ def _enabled_frameworks(db):
 @auth.role_required("admin")
 def settings_page():
     db = get_db()
+    section = request.args.get("section", "")
+    if section not in ("", "feeds", "frameworks", "delivery"):
+        section = ""
     sources = _all_sources(db)
     enabled_fw = set(_enabled_frameworks(db))
     frameworks = [{**f, "checked": f["id"] in enabled_fw} for f in compliance.FRAMEWORKS]
     return render_template(
         "settings.html", sources=sources, source_kinds=threatintel.SOURCE_KINDS,
-        unhealthy=_unhealthy_sources(db), frameworks=frameworks,
+        unhealthy=_unhealthy_sources(db), frameworks=frameworks, section=section,
         ti_enabled=(get_setting(db, "ti_enabled", "0") == "1"),
         ti_proxy=get_setting(db, "ti_proxy", "") or "",
         last_update=get_setting(db, "ti_last_update", ""),

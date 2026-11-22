@@ -2,10 +2,17 @@
 {% block title %}Settings · Argus{% endblock %}
 {% block body %}
 
+{% set titles = {'feeds': 'Threat-feed settings', 'frameworks': 'Compliance frameworks', 'delivery': 'Phishing delivery settings'} %}
+{% if section %}
+<p class="crumb"><a href="{{ url_for('settings_page') }}">Settings</a> ›</p>
+<h1>{{ titles[section] }}</h1>
+<p class="lede">Showing just this section. <a href="{{ url_for('settings_page') }}">See all settings →</a></p>
+{% else %}
 <h1>Settings</h1>
-<p class="lede">Threat-intelligence feeds. The app is offline by default — nothing contacts the internet unless you turn it on here.</p>
+<p class="lede">Threat feeds, compliance frameworks and phishing delivery. The app is offline by default — nothing contacts the internet unless you turn it on here.</p>
+{% endif %}
 
-{% if unhealthy %}
+{% if unhealthy and section in ['', 'feeds'] %}
 <div class="notice-banner warn">
   <div class="nb-icon">⚠</div>
   <div>
@@ -19,6 +26,7 @@
 
 <div class="detail-grid">
   <div class="detail-main">
+    {% if section in ['', 'feeds'] %}
     <div class="card">
       <h3>Threat-feed updates</h3>
       <div class="secnote">
@@ -86,7 +94,9 @@
         </form>
       </details>
     </div>
+    {% endif %}
 
+    {% if section in ['', 'frameworks'] %}
     <div class="card">
       <h3>Compliance frameworks</h3>
       <p class="card-sub">Tick the frameworks relevant to your environment. The Compliance view and each finding's control mapping show only the ones you enable.</p>
@@ -104,7 +114,9 @@
         <button class="btn primary" type="submit" style="margin-top:6px">Save frameworks</button>
       </form>
     </div>
+    {% endif %}
 
+    {% if section in ['', 'delivery'] %}
     <div class="card">
       <h3>Phishing delivery providers</h3>
       <p class="card-sub">For automated phishing-awareness sends. Argus reads provider credentials from the <b>server environment only</b> — never through this page — so secrets stay out of the database and its backups. Set the variables below on the host, then restart Argus.</p>
@@ -133,8 +145,10 @@ ARGUS_TWILIO_FROM=+1XXXXXXXXXX        # SMS sender
 ARGUS_TWILIO_WA_FROM=+1XXXXXXXXXX     # WhatsApp sender</pre>
       <p class="card-sub">WhatsApp only delivers Meta-approved templates, so lure content is usually rejected — treat it as best-effort. Voice and social channels are not auto-sent.</p>
     </div>
+    {% endif %}
   </div>
 
+  {% if section in ['', 'feeds'] %}
   <aside class="detail-side">
     <div class="card">
       <h3>Run an update</h3>
@@ -157,6 +171,7 @@ ARGUS_TWILIO_WA_FROM=+1XXXXXXXXXX     # WhatsApp sender</pre>
       </form>
     </div>
   </aside>
+  {% endif %}
 </div>
 
 {% endblock %}
