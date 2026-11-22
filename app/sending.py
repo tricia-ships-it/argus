@@ -25,6 +25,7 @@ worker each; for that, point them at an external queue instead. Documented in
 docs/phishing-delivery.md.
 """
 
+import json
 import sqlite3
 import threading
 import time
@@ -54,10 +55,29 @@ def _conn(db_path):
 # ---------------------------------------------------------------------------
 # Job creation (called from a request, with a live DB handle)
 # ---------------------------------------------------------------------------
-def pending_count(db, campaign_id):
+def _group_clause(groups):
+    """SQL fragment restricting to the given recipient groups. '' is the
+    ungrouped bucket; an empty/None list means no restriction (all)."""
+    if not groups:
+        return "", []
+    ph = ",".join("?" for _ in groups)
+    return f" AND COALESCE(grp,'') IN ({ph})", list(groups)
+
+
+def pending_count(db, campaign_id, groups=None):
+    frag, params = _group_clause(groups)
     return db.execute("SELECT COUNT(*) n FROM phish_recipient "
-                      "WHERE campaign_id=? AND sent_at IS NULL",
-                      (campaign_id,)).fetchone()["n"]
+                      "WHERE campaign_id=? AND sent_at IS NULL" + frag,
+                      [campaign_id] + params).fetchone()["n"]
+
+
+def campaign_groups(db, campaign_id):
+    """Distinct groups present in a campaign, with counts (ungrouped last)."""
+    rows = db.execute(
+        "SELECT COALESCE(grp,'') g, COUNT(*) n FROM phish_recipient "
+        "WHERE campaign_id=? GROUP BY COALESCE(grp,'') ORDER BY g=='' , g",
+        (campaign_id,)).fetchall()
+    return [{"name": r["g"], "count": r["n"]} for r in rows]
 
 
 def active_job(db, campaign_id):
@@ -74,21 +94,22 @@ def has_live_job(db, campaign_id):
 
 
 def create_job(db, campaign_id, channel, base_url, created_by,
-               rate_per_min=30, scheduled_at=None, include_sent=False):
-    if include_sent:
-        total = db.execute("SELECT COUNT(*) n FROM phish_recipient WHERE campaign_id=?",
-                           (campaign_id,)).fetchone()["n"]
-    else:
-        total = pending_count(db, campaign_id)
+               rate_per_min=30, scheduled_at=None, include_sent=False, groups=None):
+    frag, params = _group_clause(groups)
+    sent_cond = "" if include_sent else " AND sent_at IS NULL"
+    total = db.execute(
+        "SELECT COUNT(*) n FROM phish_recipient WHERE campaign_id=?" + sent_cond + frag,
+        [campaign_id] + params).fetchone()["n"]
     status = "scheduled" if scheduled_at else "queued"
     rate = max(1, min(int(rate_per_min or 30), 600))
     cur = db.execute(
         "INSERT INTO phish_send_job(campaign_id, channel, status, total, "
         "processed, ok_count, fail_count, rate_per_min, scheduled_at, "
-        "include_sent, base_url, created_by, created_at) "
-        "VALUES (?,?,?,?,0,0,0,?,?,?,?,?,?)",
+        "include_sent, base_url, groups, created_by, created_at) "
+        "VALUES (?,?,?,?,0,0,0,?,?,?,?,?,?,?)",
         (campaign_id, channel, status, total, rate, scheduled_at,
-         1 if include_sent else 0, base_url, created_by, _now()))
+         1 if include_sent else 0, base_url,
+         json.dumps(groups) if groups else None, created_by, _now()))
     db.commit()
     return cur.lastrowid
 
@@ -155,9 +176,14 @@ def process_job(db_path, job_id, providers=None, sleep=time.sleep):
         c.commit()
 
         delay = 60.0 / float(job["rate_per_min"] or 30)
-        where = "campaign_id=?" + ("" if job["include_sent"] else " AND sent_at IS NULL")
+        try:
+            groups = json.loads(job["groups"]) if job["groups"] else None
+        except Exception:
+            groups = None
+        frag, gparams = _group_clause(groups)
+        where = "campaign_id=?" + ("" if job["include_sent"] else " AND sent_at IS NULL") + frag
         rows = c.execute(f"SELECT * FROM phish_recipient WHERE {where} ORDER BY id",
-                         (job["campaign_id"],)).fetchall()
+                         [job["campaign_id"]] + gparams).fetchall()
         base = (job["base_url"] or "").rstrip("/")
         last = len(rows) - 1
         for i, r in enumerate(rows):
@@ -250,7 +276,7 @@ def _self_test():
       CREATE TABLE phish_send_job(id INTEGER PRIMARY KEY AUTOINCREMENT, campaign_id INT,
         channel TEXT, status TEXT, total INT, processed INT, ok_count INT,
         fail_count INT, rate_per_min INT, scheduled_at TEXT, include_sent INT,
-        base_url TEXT, created_by TEXT, created_at TEXT, started_at TEXT,
+        base_url TEXT, groups TEXT, created_by TEXT, created_at TEXT, started_at TEXT,
         finished_at TEXT, last_error TEXT);
     """)
     c.execute("INSERT INTO phish_campaign VALUES (1,'C','email','S','Hi {{name}} {{link}}','Active',1)")

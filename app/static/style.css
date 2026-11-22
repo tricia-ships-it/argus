@@ -974,3 +974,11 @@ tr.rowlink:hover td { background: var(--panel-3); }
 .pick-row input { accent-color: var(--accent); flex: none; }
 .pick-main { flex: 1; font-size: 13px; }
 .pick-or { text-align: center; font-size: 12px; color: var(--ink-faint); margin: 2px 0 14px; position: relative; }
+
+/* ===== Phishing recipient groups ===== */
+.grp-tag { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 5px;
+  padding: 1px 8px; background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--line)); color: var(--ink); }
+.grp-pick { display: flex; flex-direction: column; gap: 7px; margin: 6px 0; }
+.grp-opt { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.grp-opt input { accent-color: var(--accent); }

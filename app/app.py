@@ -215,7 +215,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             campaign_id INTEGER,
             name TEXT, email TEXT, department TEXT,
-            phone TEXT, handle TEXT,
+            phone TEXT, handle TEXT, grp TEXT,
             token TEXT UNIQUE,
             clicked_at TEXT, reported_at TEXT, click_count INTEGER DEFAULT 0,
             sent_at TEXT, delivery_status TEXT, delivery_error TEXT,
@@ -233,7 +233,7 @@ def init_db():
             total INTEGER, processed INTEGER DEFAULT 0,
             ok_count INTEGER DEFAULT 0, fail_count INTEGER DEFAULT 0,
             rate_per_min INTEGER DEFAULT 30, scheduled_at TEXT,
-            include_sent INTEGER DEFAULT 0, base_url TEXT,
+            include_sent INTEGER DEFAULT 0, base_url TEXT, groups TEXT,
             created_by TEXT, created_at TEXT,
             started_at TEXT, finished_at TEXT, last_error TEXT,
             FOREIGN KEY(campaign_id) REFERENCES phish_campaign(id)
@@ -262,8 +262,9 @@ def init_db():
     _ensure_cols("phish_recipient", {
         "phone": "phone TEXT", "handle": "handle TEXT",
         "sent_at": "sent_at TEXT", "delivery_status": "delivery_status TEXT",
-        "delivery_error": "delivery_error TEXT",
+        "delivery_error": "delivery_error TEXT", "grp": "grp TEXT",
     })
+    _ensure_cols("phish_send_job", {"groups": "groups TEXT"})
     # seed a few default owners if empty
     cur = db.execute("SELECT COUNT(*) FROM asset_owners")
     if cur.fetchone()[0] == 0:
@@ -1447,6 +1448,7 @@ def phishing_campaign(cid):
         channel=channel, provider_ready=pstatus.get(channel, False),
         is_manual=(channel in delivery.MANUAL_CHANNELS),
         job=job, pending=sending.pending_count(db, cid),
+        groups=sending.campaign_groups(db, cid),
         ext_base=url_for("phish_land", token="", _external=True))
 
 
@@ -1462,6 +1464,7 @@ def phishing_recipients(cid):
         flash("This campaign is closed — reopen a new one to add recipients.")
         return redirect(url_for("phishing_campaign", cid=cid))
     raw = request.form.get("recipients", "")
+    grp = (request.form.get("group") or "").strip()[:60]
     added, skipped = 0, 0
     existing = set()
     for r in _recipients_for(db, cid):
@@ -1484,9 +1487,9 @@ def phishing_recipients(cid):
         existing.add(key)
         db.execute(
             "INSERT INTO phish_recipient(campaign_id, name, email, department, "
-            "phone, handle, token, click_count) VALUES (?,?,?,?,?,?,?,0)",
+            "phone, handle, grp, token, click_count) VALUES (?,?,?,?,?,?,?,?,0)",
             (cid, rec["name"][:120], rec["email"][:254], rec["dept"][:120],
-             rec["phone"][:40], rec["handle"][:120], _new_token()))
+             rec["phone"][:40], rec["handle"][:120], grp, _new_token()))
         added += 1
     db.commit()
     auth.log_activity(db, me["id"], None, "phishing",
@@ -1656,8 +1659,16 @@ def phishing_send(cid):
         return redirect(url_for("phishing_campaign", cid=cid))
 
     include_sent = request.form.get("resend") == "1"
-    if not include_sent and sending.pending_count(db, cid) == 0:
-        flash("Everyone has already been sent to. Tick 're-send' to send again.")
+    # optional group filter: which recipient groups this send targets. The form
+    # sends one value per selected group (ungrouped is the empty-string value).
+    all_groups = [g["name"] for g in sending.campaign_groups(db, cid)]
+    picked_groups = request.form.getlist("group")
+    groups = [g for g in picked_groups if g in all_groups] or None
+    # treat "all groups selected" as no filter
+    if groups and set(groups) == set(all_groups):
+        groups = None
+    if not include_sent and sending.pending_count(db, cid, groups) == 0:
+        flash("No one pending in the selected group(s). Tick 're-send' or widen the selection.")
         return redirect(url_for("phishing_campaign", cid=cid))
     try:
         rate = int(request.form.get("rate") or 30)
@@ -1671,7 +1682,7 @@ def phishing_send(cid):
     base_url = os.environ.get("ARGUS_BASE_URL") or request.host_url
     jid = sending.create_job(db, cid, channel, base_url, me["username"],
                              rate_per_min=rate, scheduled_at=scheduled_at,
-                             include_sent=include_sent)
+                             include_sent=include_sent, groups=groups)
     _ensure_send_worker()
     auth.log_activity(db, me["id"], None, "phishing",
                       f"queued send job #{jid} for campaign #{cid} via {channel}")

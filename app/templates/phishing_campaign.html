@@ -55,14 +55,14 @@
     <div class="table-scroll">
     <table class="grid">
       <thead>
-        <tr><th>Name</th><th>Contact</th><th>Dept</th><th>Delivery</th><th>Outcome</th><th>When</th><th>{% if is_manual %}Message{% else %}Link{% endif %}</th></tr>
+        <tr><th>Name</th><th>Contact</th><th>Group</th><th>Delivery</th><th>Outcome</th><th>When</th><th>{% if is_manual %}Message{% else %}Link{% endif %}</th></tr>
       </thead>
       <tbody>
         {% for r in recips %}
         <tr>
           <td>{{ r.name or (r.email.split('@')[0] if r.email else '—') }}</td>
           <td class="mono">{% if channel in ['sms','whatsapp'] %}{{ r.phone or '—' }}{% elif channel == 'social' %}{{ r.handle or '—' }}{% else %}{{ r.email or '—' }}{% endif %}</td>
-          <td class="muted">{{ r.department or '—' }}</td>
+          <td>{% if r.grp %}<span class="grp-tag">{{ r.grp }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
           <td class="nowrap">
             {% if r.delivery_status == 'sent' %}<span class="risk Low sm">Sent</span>
             {% elif r.delivery_status == 'failed' %}<span class="risk Critical sm" title="{{ r.delivery_error }}">Failed</span>
@@ -96,6 +96,11 @@
       <div class="field">
         <label for="recipients">Add recipients <span class="muted">— one per line. Mix any of: name, email, <span class="mono">+phone</span>, <span class="mono">@handle</span>, department (any order)</span></label>
         <textarea id="recipients" name="recipients" rows="4" placeholder="Alex Mensah, alex@company.example, Finance&#10;Jordan Owusu, +233201234567&#10;Ama Boateng, @ama.b, ama@company.example"></textarea>
+      </div>
+      <div class="field">
+        <label for="group">Add to group <span class="muted">(optional) — e.g. Finance, IT, Executives. Lets you send to just this group later.</span></label>
+        <input type="text" id="group" name="group" list="grouplist" placeholder="Ungrouped" style="max-width:260px">
+        <datalist id="grouplist">{% for g in groups if g.name %}<option value="{{ g.name }}">{% endfor %}</datalist>
       </div>
       <div><button class="btn" type="submit">Add recipients</button></div>
     </form>
@@ -150,6 +155,17 @@
         <form method="post" action="{{ url_for('phishing_send', cid=c.id) }}" class="send-form" style="margin-top:12px"
               onsubmit="return confirm('Queue a send for this campaign?');">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          {% if groups|length > 1 %}
+          <div class="field">
+            <label class="lbl">Send to groups</label>
+            <div class="grp-pick">
+              {% for g in groups %}
+              <label class="grp-opt"><input type="checkbox" name="group" value="{{ g.name }}" checked> <span>{{ g.name or 'Ungrouped' }} <span class="muted">({{ g.count }})</span></span></label>
+              {% endfor %}
+            </div>
+            <span class="hint">Untick a group to leave it out of this send.</span>
+          </div>
+          {% endif %}
           <div class="grid-2" style="gap:10px">
             <label class="mini"><span>Rate / min</span><input type="number" name="rate" value="30" min="1" max="600"></label>
             <label class="mini"><span>Schedule <span class="muted">(optional)</span></span><input type="datetime-local" name="scheduled_at"></label>
