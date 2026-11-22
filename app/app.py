@@ -193,6 +193,14 @@ def init_db():
             cve TEXT, title TEXT, products TEXT, severity TEXT, source TEXT,
             kev INTEGER, date TEXT, summary TEXT, imported_at TEXT
         );
+        CREATE TABLE IF NOT EXISTS threat_source (
+            id TEXT PRIMARY KEY, name TEXT, url TEXT, kind TEXT,
+            enabled INTEGER DEFAULT 1, added_by TEXT, created_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS threat_source_health (
+            source_id TEXT PRIMARY KEY, status TEXT, detail TEXT,
+            records INTEGER DEFAULT 0, checked_at TEXT
+        );
         CREATE TABLE IF NOT EXISTS phish_campaign (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT, template_key TEXT, sender TEXT, subject TEXT,
@@ -1005,6 +1013,52 @@ def _enabled_sources(db):
         return []
 
 
+def _custom_sources(db):
+    return [dict(r) for r in db.execute(
+        "SELECT * FROM threat_source ORDER BY created_at")]
+
+
+def _all_sources(db):
+    """Built-in + admin-added sources, each annotated with enabled state and
+    last-fetch health, for the Settings list and the fetch loop."""
+    enabled_builtin = set(_enabled_sources(db))
+    health = {r["source_id"]: dict(r)
+              for r in db.execute("SELECT * FROM threat_source_health")}
+    out = []
+    for s in threatintel.SOURCES:
+        out.append({**s, "custom": False, "checked": s["id"] in enabled_builtin,
+                    "health": health.get(s["id"])})
+    for s in _custom_sources(db):
+        out.append({"id": s["id"], "name": s["name"], "url": s["url"],
+                    "kind": s["kind"], "custom": True, "checked": bool(s["enabled"]),
+                    "desc": "Custom source" + (f" · added by {s['added_by']}" if s["added_by"] else ""),
+                    "health": health.get(s["id"])})
+    return out
+
+
+def _effective_sources(db):
+    """Only the enabled sources — what the update loop actually fetches."""
+    return [s for s in _all_sources(db) if s["checked"]]
+
+
+def _record_source_health(db, sid, status, detail="", records=0):
+    db.execute(
+        "INSERT INTO threat_source_health(source_id, status, detail, records, checked_at) "
+        "VALUES (?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET "
+        "status=excluded.status, detail=excluded.detail, records=excluded.records, "
+        "checked_at=excluded.checked_at",
+        (sid, status, (detail or "")[:300], records,
+         datetime.now().isoformat(timespec="seconds")))
+
+
+def _unhealthy_sources(db):
+    """Enabled sources whose last fetch failed — surfaced as notifications."""
+    return [{"name": s["name"], "detail": (s["health"] or {}).get("detail", ""),
+             "checked_at": (s["health"] or {}).get("checked_at", "")}
+            for s in _effective_sources(db)
+            if s.get("health") and s["health"]["status"] == "error"]
+
+
 def _enabled_frameworks(db):
     raw = get_setting(db, "comp_frameworks")
     if raw is None:
@@ -1021,12 +1075,12 @@ def _enabled_frameworks(db):
 @auth.role_required("admin")
 def settings_page():
     db = get_db()
-    enabled = set(_enabled_sources(db))
-    sources = [{**s, "checked": s["id"] in enabled} for s in threatintel.SOURCES]
+    sources = _all_sources(db)
     enabled_fw = set(_enabled_frameworks(db))
     frameworks = [{**f, "checked": f["id"] in enabled_fw} for f in compliance.FRAMEWORKS]
     return render_template(
-        "settings.html", sources=sources, frameworks=frameworks,
+        "settings.html", sources=sources, source_kinds=threatintel.SOURCE_KINDS,
+        unhealthy=_unhealthy_sources(db), frameworks=frameworks,
         ti_enabled=(get_setting(db, "ti_enabled", "0") == "1"),
         ti_proxy=get_setting(db, "ti_proxy", "") or "",
         last_update=get_setting(db, "ti_last_update", ""),
@@ -1046,10 +1100,76 @@ def settings_threatintel():
     chosen = [s["id"] for s in threatintel.SOURCES
               if request.form.get("src_" + s["id"])]
     set_setting(db, "ti_sources", _json.dumps(chosen))
+    # enable/disable each admin-added source from its checkbox
+    for s in _custom_sources(db):
+        on = 1 if request.form.get("src_" + s["id"]) else 0
+        db.execute("UPDATE threat_source SET enabled=? WHERE id=?", (on, s["id"]))
     set_setting(db, "ti_proxy", request.form.get("ti_proxy", "").strip())
     db.commit()
     auth.log_activity(db, me["id"], None, "settings", "updated threat-feed settings")
     flash("Threat-feed settings saved.")
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/settings/sources/add", methods=["POST"])
+@auth.role_required("admin")
+def settings_source_add():
+    db = get_db()
+    me = auth.current_user(db)
+    name = (request.form.get("name") or "").strip()[:120]
+    url = (request.form.get("url") or "").strip()[:500]
+    kind = (request.form.get("kind") or "").strip()
+    if not name:
+        flash("Give the source a name.")
+        return redirect(url_for("settings_page"))
+    if kind not in {k["id"] for k in threatintel.SOURCE_KINDS}:
+        flash("Pick a feed format for the source.")
+        return redirect(url_for("settings_page"))
+    ok, reason = threatintel.validate_source_url(url)
+    if not ok:
+        flash(f"Source not added — {reason}")
+        return redirect(url_for("settings_page"))
+    # don't duplicate a URL already present (built-in or custom)
+    existing_urls = {s["url"] for s in _all_sources(db)}
+    if url in existing_urls:
+        flash("That URL is already a source.")
+        return redirect(url_for("settings_page"))
+    sid = "custom_" + _secrets.token_hex(5)
+    db.execute("INSERT INTO threat_source(id, name, url, kind, enabled, added_by, created_at) "
+               "VALUES (?,?,?,?,1,?,?)",
+               (sid, name, url, kind, me["username"],
+                datetime.now().isoformat(timespec="seconds")))
+    db.commit()
+    auth.log_activity(db, me["id"], None, "settings", f"added threat source '{name}'")
+    # test-fetch now (if online) so the admin learns immediately whether it works
+    note = ""
+    if get_setting(db, "ti_enabled", "0") == "1":
+        proxy = get_setting(db, "ti_proxy", "") or None
+        try:
+            recs = threatintel.fetch_custom({"url": url, "kind": kind, "name": name}, proxy=proxy)
+            _record_source_health(db, sid, "ok", f"{len(recs)} records", len(recs))
+            note = f" Reachable — {len(recs)} records on a test fetch."
+        except Exception as e:
+            _record_source_health(db, sid, "error", str(e))
+            note = f" ⚠ Added, but the test fetch failed: {e}"
+        db.commit()
+    flash(f"Source '{name}' added." + note)
+    return redirect(url_for("settings_page"))
+
+
+@app.route("/settings/sources/<sid>/delete", methods=["POST"])
+@auth.role_required("admin")
+def settings_source_delete(sid):
+    db = get_db()
+    me = auth.current_user(db)
+    row = db.execute("SELECT name FROM threat_source WHERE id=?", (sid,)).fetchone()
+    if not row:
+        abort(404)
+    db.execute("DELETE FROM threat_source WHERE id=?", (sid,))
+    db.execute("DELETE FROM threat_source_health WHERE source_id=?", (sid,))
+    db.commit()
+    auth.log_activity(db, me["id"], None, "settings", f"removed threat source '{row['name']}'")
+    flash(f"Source '{row['name']}' removed.")
     return redirect(url_for("settings_page"))
 
 
@@ -1078,21 +1198,27 @@ def threatintel_update():
               "or import a feed file for air-gapped use.")
         return redirect(url_for("settings_page"))
     proxy = get_setting(db, "ti_proxy", "") or None
-    enabled = _enabled_sources(db)
+    sources = _effective_sources(db)
     records, errors = [], []
-    for sid in enabled:
+    for s in sources:
         try:
-            records.extend(threatintel.fetch_source(sid, proxy=proxy))
+            recs = (threatintel.fetch_custom(s, proxy=proxy) if s["custom"]
+                    else threatintel.fetch_source(s["id"], proxy=proxy))
+            records.extend(recs)
+            _record_source_health(db, s["id"], "ok", f"{len(recs)} records", len(recs))
         except Exception as e:
-            errors.append(f"{sid}: {e}")
+            _record_source_health(db, s["id"], "error", str(e))
+            errors.append(f"{s['name']}: {e}")
+            auth.log_activity(db, me["id"], None, "threatintel",
+                              f"source '{s['name']}' failed: {str(e)[:120]}")
     if records:
         _store_feed(db, records)
         set_setting(db, "ti_last_update", datetime.now().isoformat(timespec="seconds"))
-        db.commit()
         auth.log_activity(db, me["id"], None, "threatintel", f"updated feed ({len(records)} records)")
-    msg = f"Fetched {len(records)} feed records from {len(enabled)} source(s)."
+    db.commit()
+    msg = f"Fetched {len(records)} feed records from {len(sources)} source(s)."
     if errors:
-        msg += " Some sources could not be reached: " + "; ".join(errors)
+        msg += f" ⚠ {len(errors)} source(s) had problems — see the alert on this page."
     flash(msg)
     return redirect(url_for("threatintel_view"))
 
@@ -1159,6 +1285,7 @@ def threatintel_view():
     kev_count = sum(1 for a in alerts if a["kev"])
     return render_template("threat_alerts.html", alerts=alerts, feed_count=len(feed),
                            kev_count=kev_count, last_update=get_setting(db, "ti_last_update", ""),
+                           unhealthy=_unhealthy_sources(db),
                            enabled=(get_setting(db, "ti_enabled", "0") == "1"))
 
 

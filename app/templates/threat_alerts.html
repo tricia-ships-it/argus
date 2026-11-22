@@ -2,6 +2,19 @@
 {% block title %}Threat intel · Argus{% endblock %}
 {% block body %}
 
+{% if unhealthy %}
+<div class="notice-banner warn">
+  <div class="nb-icon">⚠</div>
+  <div>
+    <b>{{ unhealthy|length }} threat source{{ 's' if unhealthy|length != 1 }} need attention.</b>
+    <ul class="nb-list">
+      {% for u in unhealthy %}<li><b>{{ u.name }}</b> — {{ u.detail or 'last fetch failed' }}{% if u.checked_at %} <span class="muted">({{ u.checked_at[:16].replace('T',' ') }})</span>{% endif %}</li>{% endfor %}
+    </ul>
+    <a href="{{ url_for('settings_page') }}">Review feed sources →</a>
+  </div>
+</div>
+{% endif %}
+
 <div class="page-head">
   <div>
     <h1>Threat intelligence</h1>

@@ -22,9 +22,12 @@ SECURITY MODEL (read this before changing anything):
 """
 import gzip
 import io
+import ipaddress
 import json
 import re
+import socket
 import urllib.request
+from urllib.parse import urlparse
 
 # --- the complete allow-list of public feed sources -------------------------
 SOURCES = [
@@ -112,11 +115,82 @@ def fetch_url(url, allow, proxy=None, timeout=30):
 
 
 def fetch_source(source_id, proxy=None, timeout=30):
-    """Fetch one allow-listed source by id. URL comes from SOURCES, not the caller."""
+    """Fetch one allow-listed built-in source by id. URL comes from SOURCES."""
     src = SOURCE_BY_ID.get(source_id)
     if not src:
         raise FetchError(f"Unknown source id: {source_id!r}")
     raw = fetch_url(src["url"], _ALL_URLS, proxy=proxy, timeout=timeout)
+    return parse_feed(src, raw)
+
+
+# --- custom sources (admin-added) ------------------------------------------
+# Parser formats a custom source can declare. Only formats we can actually read.
+SOURCE_KINDS = [
+    {"id": "kev", "name": "CISA KEV format (JSON)",
+     "desc": "A JSON feed shaped like CISA's Known Exploited Vulnerabilities list."},
+    {"id": "nvd", "name": "NVD CVE feed (JSON or .gz)",
+     "desc": "An NVD-style CVE feed (the NIST JSON 1.1 schema), optionally gzipped."},
+]
+_KIND_IDS = {k["id"] for k in SOURCE_KINDS}
+
+
+def validate_source_url(url):
+    """Guard a user-supplied source URL. The app must only ever reach *public*
+    feed endpoints — never anything inside the operator's own network — so this
+    rejects non-HTTPS, loopback/internal names, and any host that is (or
+    resolves to) a private, loopback, link-local or otherwise non-global IP.
+    Returns (ok: bool, reason: str)."""
+    url = (url or "").strip()
+    if not url:
+        return False, "Enter a URL."
+    try:
+        u = urlparse(url)
+    except Exception:
+        return False, "That is not a valid URL."
+    if u.scheme != "https":
+        return False, "The source URL must use https."
+    host = (u.hostname or "").strip()
+    if not host:
+        return False, "The URL is missing a host."
+    low = host.lower()
+    if low == "localhost" or low.endswith(".local") or low.endswith(".internal") \
+            or low.endswith(".lan") or low.endswith(".home.arpa"):
+        return False, "Internal or loopback hosts are not allowed — sources must be public."
+    # IP literal: must be a globally routable address
+    try:
+        ip = ipaddress.ip_address(host)
+        if not ip.is_global:
+            return False, "Private, loopback or reserved IP addresses are not allowed."
+        return True, ""
+    except ValueError:
+        pass  # it's a hostname
+    # hostname: best-effort resolve and reject if it points anywhere non-public
+    try:
+        infos = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
+    except Exception:
+        # resolution can fail on an air-gapped box; allow a well-formed public
+        # hostname through — the fetch itself fails safely if it is unreachable.
+        return True, ""
+    for info in infos:
+        try:
+            addr = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            continue
+        if not addr.is_global:
+            return False, f"{host} resolves to a non-public address ({addr}); refused."
+    return True, ""
+
+
+def fetch_custom(src, proxy=None, timeout=30):
+    """Fetch + parse an admin-added source. The URL is re-validated here (defence
+    in depth) and the allow-set is exactly this source's own URL, so the
+    fetch-only guarantee still holds."""
+    ok, reason = validate_source_url(src.get("url", ""))
+    if not ok:
+        raise FetchError(f"Refused: {reason}")
+    if src.get("kind") not in _KIND_IDS:
+        raise FetchError(f"Unknown feed format: {src.get('kind')!r}")
+    raw = fetch_url(src["url"], {src["url"]}, proxy=proxy, timeout=timeout)
     return parse_feed(src, raw)
 
 
