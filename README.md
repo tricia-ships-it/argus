@@ -2,7 +2,7 @@
 
 **Argus** is a self-contained, **offline security posture & assurance platform**
 for internal and data-centre environments. It runs entirely on your own
-network — no internet required, no AI, no telemetry, nothing leaves the machine.
+network — no internet required, no telemetry, nothing leaves the machine.
 
 > *Formerly "VAPT Tracker." Argus — the hundred-eyed guardian — reflects what the
 > tool now does: give you eyes across your whole estate.*

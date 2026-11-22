@@ -2,7 +2,7 @@
 
 A self-contained, **offline** vulnerability assessment and remediation-tracking
 platform for quarterly data-centre VAPT work. It runs entirely on your internal
-network — no internet, no AI, no telemetry, no data leaves the machine.
+network — no internet, no telemetry, no data leaves the machine.
 
 It does two jobs:
 

@@ -27,22 +27,23 @@
       <span class="mark"><b>//</b> Argus</span>
       <span class="tag">internal · offline</span>
     </div>
+    {% set ep = request.endpoint %}
     <nav class="topnav">
-      <a href="{{ url_for('dashboard') }}">Dashboard</a>
-      <a href="{{ url_for('index') }}">Findings</a>
-      <a href="{{ url_for('inventory') }}">Inventory</a>
-      <a href="{{ url_for('assets') }}">Assets</a>
-      <a href="{{ url_for('scan_diff') }}">Compare</a>
-      <a href="{{ url_for('compliance_view') }}">Compliance</a>
-      <a href="{{ url_for('threatintel_view') }}">Threats</a>
-      <a href="{{ url_for('phishing_view') }}">Phishing</a>
-      <a href="{{ url_for('activity_feed') }}">Activity</a>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}">Dashboard</a>
+      <a href="{{ url_for('index') }}" class="{{ 'active' if ep in ['index','finding_detail'] }}">Findings</a>
+      <a href="{{ url_for('inventory') }}" class="{{ 'active' if ep in ['inventory','inventory_import','inventory_edit'] }}">Inventory</a>
+      <a href="{{ url_for('assets') }}" class="{{ 'active' if ep == 'assets' }}">Assets</a>
+      <a href="{{ url_for('scan_diff') }}" class="{{ 'active' if ep == 'scan_diff' }}">Compare</a>
+      <a href="{{ url_for('compliance_view') }}" class="{{ 'active' if ep == 'compliance_view' }}">Compliance</a>
+      <a href="{{ url_for('threatintel_view') }}" class="{{ 'active' if ep == 'threatintel_view' }}">Threats</a>
+      <a href="{{ url_for('phishing_view') }}" class="{{ 'active' if ep in ['phishing_view','phishing_new','phishing_campaign'] }}">Phishing</a>
+      <a href="{{ url_for('activity_feed') }}" class="{{ 'active' if ep == 'activity_feed' }}">Activity</a>
       {% if can_import_or_scan %}
-      <a href="{{ url_for('import_scan') }}">Import</a>
-      <a href="{{ url_for('owners') }}">Owners</a>
+      <a href="{{ url_for('import_scan') }}" class="{{ 'active' if ep == 'import_scan' }}">Import</a>
+      <a href="{{ url_for('owners') }}" class="{{ 'active' if ep == 'owners' }}">Owners</a>
       {% endif %}
-      {% if is_admin %}<a href="{{ url_for('users') }}">Users</a>{% endif %}
-      {% if is_admin %}<a href="{{ url_for('settings_page') }}">Settings</a>{% endif %}
+      {% if is_admin %}<a href="{{ url_for('users') }}" class="{{ 'active' if ep == 'users' }}">Users</a>{% endif %}
+      {% if is_admin %}<a href="{{ url_for('settings_page') }}" class="{{ 'active' if ep and ep.startswith('settings') }}">Settings</a>{% endif %}
       {% if can_import_or_scan %}<a href="{{ url_for('finding_new') }}">+ Add</a>{% endif %}
       {% if can_import_or_scan %}<a href="{{ url_for('scan_page') }}" class="primary">Run scan</a>{% endif %}
     </nav>

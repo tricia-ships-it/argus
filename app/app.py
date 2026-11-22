@@ -1,7 +1,7 @@
 """
 VAPT Assessment & Remediation Tracker — offline Flask application.
 
-Runs entirely on the internal network. No internet calls, no AI, no telemetry.
+Runs entirely on the internal network. No internet calls, no telemetry, no outbound data.
 Data lives in a local SQLite file (vapt.db) next to this script.
 
 Usage:
