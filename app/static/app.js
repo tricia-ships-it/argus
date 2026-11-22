@@ -93,8 +93,8 @@
     var cmds = [
       { ic: "◆", label: "Dashboard", sub: "g d", href: url("dashboard") },
       { ic: "≡", label: "All findings", sub: "g f", href: url("index") },
-      { ic: "▦", label: "Asset register (inventory)", sub: "", href: url("inventory") },
-      { ic: "☷", label: "Asset risk view", sub: "", href: url("assets") },
+      { ic: "▦", label: "Asset register", sub: "", href: url("inventory") },
+      { ic: "☷", label: "Hosts at risk", sub: "", href: url("assets") },
       { ic: "⇄", label: "Compare scans", sub: "", href: url("diff") },
       { ic: "✓", label: "Compliance coverage", sub: "", href: url("compliance") },
       { ic: "⚠", label: "Threat intelligence", sub: "", href: url("threatintel") },

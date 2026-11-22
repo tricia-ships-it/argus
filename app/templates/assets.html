@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Asset inventory · Argus{% endblock %}
+{% block title %}Hosts at risk · Argus{% endblock %}
 {% block body %}
 
-<h1>Asset inventory</h1>
-<p class="lede">Every assessed host, ranked by its highest open risk — a per-asset view of exposure, ownership and remediation load across {{ total_hosts }} host{{ '' if total_hosts==1 else 's' }}.</p>
+<h1>Hosts at risk</h1>
+<p class="lede">Every assessed host, ranked by its highest open risk — a per-host view of exposure, ownership and remediation load across {{ total_hosts }} host{{ '' if total_hosts==1 else 's' }}. (The full asset list, with scan governance, lives in <a href="{{ url_for('inventory') }}">Asset register</a>.)</p>
 
 {% if not hosts %}
 <div class="empty"><h3>No assets yet</h3><p>Run or import a scan to build the inventory.</p></div>

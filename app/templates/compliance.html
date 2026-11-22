@@ -3,7 +3,26 @@
 {% block body %}
 
 <h1>Compliance coverage</h1>
-<p class="lede">Which control areas the current findings touch, mapped to the frameworks you've enabled{% if frameworks %} ({{ frameworks|join(', ') }}){% endif %}. This relates findings to controls to show where open gaps sit — it is guidance for assessment, not a certification of compliance. Choose frameworks in <a href="{{ url_for('settings_page') }}">Settings</a>.</p>
+<p class="lede">Which control areas the current findings touch, mapped to the frameworks you've enabled{% if frameworks %} ({{ frameworks|join(', ') }}){% endif %}. This relates findings to controls to show where open gaps sit — it is guidance for assessment, not a certification of compliance.</p>
+
+{% if is_admin and all_frameworks %}
+<details class="fw-toggle" {{ 'open' if not frameworks }}>
+  <summary>Frameworks in use — add or remove</summary>
+  <form method="post" action="{{ url_for('settings_frameworks') }}" class="fw-form">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="compliance">
+    <div class="fw-chips">
+      {% for f in all_frameworks %}
+      <label class="fw-chip {{ 'on' if f.checked }}">
+        <input type="checkbox" name="fw_{{ f.id }}" {{ 'checked' if f.checked }}>
+        <span>{{ f.name }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <button class="btn primary sm" type="submit">Apply</button>
+  </form>
+</details>
+{% endif %}
 
 {% if not total %}
 <div class="empty"><h3>No findings yet</h3><p>Populate the register and control coverage appears here.</p></div>

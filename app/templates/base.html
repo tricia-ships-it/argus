@@ -31,8 +31,8 @@
     <nav class="topnav">
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}">Dashboard</a>
       <a href="{{ url_for('index') }}" class="{{ 'active' if ep in ['index','finding_detail'] }}">Findings</a>
-      <a href="{{ url_for('inventory') }}" class="{{ 'active' if ep in ['inventory','inventory_import','inventory_edit'] }}">Inventory</a>
-      <a href="{{ url_for('assets') }}" class="{{ 'active' if ep == 'assets' }}">Assets</a>
+      <a href="{{ url_for('inventory') }}" class="{{ 'active' if ep in ['inventory','inventory_import','inventory_edit'] }}">Asset register</a>
+      <a href="{{ url_for('assets') }}" class="{{ 'active' if ep == 'assets' }}">Hosts at risk</a>
       <a href="{{ url_for('scan_diff') }}" class="{{ 'active' if ep == 'scan_diff' }}">Compare</a>
       <a href="{{ url_for('compliance_view') }}" class="{{ 'active' if ep == 'compliance_view' }}">Compliance</a>
       <a href="{{ url_for('threatintel_view') }}" class="{{ 'active' if ep == 'threatintel_view' }}">Threats</a>

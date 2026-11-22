@@ -983,11 +983,12 @@ def assets():
 @auth.login_required
 def compliance_view():
     db = get_db()
-    enabled = _enabled_frameworks(db)
+    enabled = set(_enabled_frameworks(db))
     rows = [enrich(r) for r in db.execute("SELECT * FROM findings")]
     cov = compliance.coverage(rows, enabled)
+    all_frameworks = [{**f, "checked": f["id"] in enabled} for f in compliance.FRAMEWORKS]
     return render_template("compliance.html", coverage=cov, frameworks=list(cov.keys()),
-                           total=len(rows))
+                           all_frameworks=all_frameworks, total=len(rows))
 
 
 # ===========================================================================
@@ -1184,6 +1185,9 @@ def settings_frameworks():
     db.commit()
     auth.log_activity(db, me["id"], None, "settings", "updated compliance frameworks")
     flash("Compliance frameworks updated.")
+    # return to wherever the change was made from (Compliance page or Settings)
+    if request.form.get("next") == "compliance":
+        return redirect(url_for("compliance_view"))
     return redirect(url_for("settings_page"))
 
 
@@ -2051,9 +2055,20 @@ SCAN_JOBS = {}
 @app.route("/scan", methods=["GET"])
 @auth.role_required("admin", "editor")
 def scan_page():
+    db = get_db()
+    # scan-eligible assets from the register (OT / protected assets are excluded
+    # by scan_eligible=0, so they can never be ticked here)
+    eligible = db.execute(
+        "SELECT ip, hostname, criticality, asset_type FROM assets "
+        "WHERE scan_eligible=1 AND ip IS NOT NULL AND ip != '' "
+        "ORDER BY CASE criticality WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 "
+        "WHEN 'Medium' THEN 2 WHEN 'Low' THEN 3 ELSE 4 END, hostname, ip").fetchall()
+    protected = db.execute(
+        "SELECT COUNT(*) n FROM assets WHERE scan_eligible=0").fetchone()["n"]
     return render_template(
         "scan.html", owners=owner_list(), severities=engine.SEVERITIES,
-        today=date.today().isoformat(),
+        today=date.today().isoformat(), eligible=[dict(r) for r in eligible],
+        protected_count=protected,
         default_ports=",".join(str(p) for p in scanner_mod.DEFAULT_PORTS),
     )
 
@@ -2061,9 +2076,16 @@ def scan_page():
 @app.route("/scan/start", methods=["POST"])
 @auth.role_required("admin", "editor")
 def scan_start():
-    targets = request.form.get("targets", "").strip()
+    # targets come from two places: assets ticked from the register, plus any
+    # free-text IPs/ranges typed in. We union them.
+    picked = request.form.getlist("asset_ip")
+    typed = request.form.get("targets", "").strip()
+    parts = [p for p in picked if p.strip()]
+    if typed:
+        parts.append(typed)
+    targets = "\n".join(parts).strip()
     if not targets:
-        flash("Enter at least one target IP, range or CIDR.")
+        flash("Tick at least one asset to scan, or type a target IP, range or CIDR.")
         return redirect(url_for("scan_page"))
     ports_raw = request.form.get("ports", "").strip()
     ports = None

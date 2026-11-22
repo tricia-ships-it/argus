@@ -8,10 +8,29 @@
 <form method="post" action="{{ url_for('scan_start') }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   <div class="panel">
     <h2>Targets</h2>
+
+    {% if eligible %}
+    <div class="pick-head">
+      <label class="pick-all"><input type="checkbox" id="pickall"> <b>Scan from the asset register</b></label>
+      <span class="hint">{{ eligible|length }} scan-eligible asset{{ '' if eligible|length==1 else 's' }}{% if protected_count %} · {{ protected_count }} protected (OT / do-not-scan) asset{{ '' if protected_count==1 else 's' }} are excluded and can't be ticked{% endif %}.</span>
+    </div>
+    <div class="pick-list">
+      {% for a in eligible %}
+      <label class="pick-row">
+        <input type="checkbox" name="asset_ip" value="{{ a.ip }}">
+        <span class="pick-main">{{ a.hostname or a.ip }}{% if a.hostname %} <span class="muted mono">{{ a.ip }}</span>{% endif %}</span>
+        {% if a.criticality %}<span class="risk {{ a.criticality }} sm">{{ a.criticality }}</span>{% endif %}
+        <span class="muted" style="font-size:11.5px">{{ a.asset_type }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="pick-or">or add targets manually</div>
+    {% endif %}
+
     <div class="form-grid">
       <div class="field full">
-        <label>IP addresses, ranges or CIDR</label>
-        <textarea name="targets" placeholder="10.100.72.3&#10;10.100.72.0/28&#10;10.100.72.1-20" required></textarea>
+        <label>IP addresses, ranges or CIDR {% if eligible %}<span class="muted">(optional)</span>{% endif %}</label>
+        <textarea name="targets" placeholder="10.100.72.3&#10;10.100.72.0/28&#10;10.100.72.1-20"{{ '' if eligible else ' required' }}></textarea>
         <span class="hint">One or many. Accepts single IPs, 10.0.0.0/24 CIDR, 10.0.0.1-20 ranges, or hostnames — separated by spaces, commas or new lines.</span>
       </div>
       <div class="field full">
@@ -70,4 +89,21 @@
     <a class="btn ghost" href="{{ url_for('index') }}">Cancel</a>
   </div>
 </form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var all = document.getElementById('pickall');
+  if (!all) return;
+  var boxes = document.querySelectorAll('input[name="asset_ip"]');
+  all.addEventListener('change', function () {
+    boxes.forEach(function (b) { b.checked = all.checked; });
+  });
+  boxes.forEach(function (b) {
+    b.addEventListener('change', function () {
+      all.checked = Array.prototype.every.call(boxes, function (x) { return x.checked; });
+    });
+  });
+})();
+</script>
 {% endblock %}
