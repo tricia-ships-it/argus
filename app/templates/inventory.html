@@ -8,10 +8,24 @@
     <p class="lede">The canonical list of assets, their criticality and type, and whether they may be actively scanned. Operational-technology assets are protected from active scanning by default.</p>
   </div>
   <div class="head-actions">
+    {% if can_manage and zoho_ready %}
+    <form method="post" action="{{ url_for('inventory_sync') }}" style="display:inline"
+          onsubmit="return confirm('Pull the latest inventory from Zoho Creator now?')">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn" type="submit">Sync from Zoho</button>
+    </form>
+    {% endif %}
     <a class="btn ghost" href="{{ url_for('inventory_template') }}">Download template</a>
     <a class="btn primary" href="{{ url_for('inventory_import') }}">Import assets</a>
   </div>
 </div>
+
+{% if can_manage and zoho_status.status %}
+<div class="synced-note {{ 'ok' if zoho_status.status == 'ok' else 'err' }}">
+  {% if zoho_status.status == 'ok' %}✓ Last Zoho sync: {{ zoho_status.detail }}{% if zoho_status.at %} · {{ zoho_status.at[:16].replace('T',' ') }}{% endif %}
+  {% else %}⚠ Last Zoho sync failed: {{ zoho_status.detail }}. <a href="{{ url_for('settings_page', section='zoho') }}">Check settings</a>.{% endif %}
+</div>
+{% endif %}
 
 <div class="stats" title="Click to filter the table">
   <div class="stat clickable active" data-ifilter="all"><div class="n count" data-count="{{ counts.total }}">{{ counts.total }}</div><div class="l">Assets</div></div>

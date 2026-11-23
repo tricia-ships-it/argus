@@ -35,6 +35,7 @@ import phishing
 import delivery
 import sending
 import snapshots
+import zoho
 import csv as _csv
 import json as _json
 import threading
@@ -1226,7 +1227,7 @@ def _enabled_frameworks(db):
 def settings_page():
     db = get_db()
     section = request.args.get("section", "")
-    if section not in ("", "feeds", "frameworks", "delivery", "instance"):
+    if section not in ("", "feeds", "frameworks", "delivery", "instance", "zoho"):
         section = ""
     sources = _all_sources(db)
     enabled_fw = set(_enabled_frameworks(db))
@@ -1235,6 +1236,12 @@ def settings_page():
         "settings.html", sources=sources, source_kinds=threatintel.SOURCE_KINDS,
         unhealthy=_unhealthy_sources(db), frameworks=frameworks, section=section,
         instance_label=get_setting(db, "instance_label", ""),
+        zoho_conn=_zoho_conn(db), zoho_mapping=_zoho_mapping(db),
+        zoho_fields=zoho.MAP_FIELDS, zoho_dcs=zoho.DATA_CENTERS,
+        zoho_secrets_ok=zoho.secrets_configured(),
+        zoho_status={"status": get_setting(db, "zoho_last_status", ""),
+                     "detail": get_setting(db, "zoho_last_detail", ""),
+                     "at": get_setting(db, "zoho_last_at", "")},
         ti_enabled=(get_setting(db, "ti_enabled", "0") == "1"),
         ti_proxy=get_setting(db, "ti_proxy", "") or "",
         last_update=get_setting(db, "ti_last_update", ""),
@@ -1505,6 +1512,124 @@ def _delivery_providers():
 def _ensure_send_worker():
     """Start the background send worker on first use (idempotent)."""
     sending.start_worker(DB_PATH, _delivery_providers)
+
+
+# --- Zoho Creator inventory sync -------------------------------------------
+def _zoho_conn(db):
+    return {
+        "dc": get_setting(db, "zoho_dc", "com") or "com",
+        "owner": get_setting(db, "zoho_owner", ""),
+        "app": get_setting(db, "zoho_app", ""),
+        "report": get_setting(db, "zoho_report", ""),
+    }
+
+
+def _zoho_mapping(db):
+    raw = get_setting(db, "zoho_mapping", "")
+    try:
+        m = _json.loads(raw) if raw else {}
+    except Exception:
+        m = {}
+    return {k: (m.get(k) or "") for k, _ in zoho.MAP_FIELDS}
+
+
+def _upsert_assets(db, assets, source):
+    """Insert new assets, update existing ones (matched by IP then hostname).
+    Classification (type / scan policy / eligibility) is always refreshed, but a
+    manually-set criticality, owner or description is kept when the incoming
+    value is empty, so a sync never wipes hand-entered context."""
+    added = updated = 0
+    now = datetime.now().isoformat(timespec="seconds")
+    for a in assets:
+        existing = None
+        if a["ip"]:
+            existing = db.execute("SELECT * FROM assets WHERE ip=? AND ip!=''",
+                                  (a["ip"],)).fetchone()
+        if not existing and a["hostname"]:
+            existing = db.execute("SELECT * FROM assets WHERE hostname=? AND hostname!=''",
+                                  (a["hostname"],)).fetchone()
+        if existing:
+            db.execute(
+                "UPDATE assets SET ip=?, hostname=?, description=?, owner=?, "
+                "criticality=?, asset_type=?, scan_policy=?, scan_eligible=?, "
+                "classify_reason=?, source=?, updated_at=? WHERE id=?",
+                (a["ip"] or existing["ip"], a["hostname"] or existing["hostname"],
+                 a["description"] or existing["description"],
+                 a["owner"] or existing["owner"],
+                 a["criticality"] or existing["criticality"],
+                 a["asset_type"], a["scan_policy"], a["scan_eligible"],
+                 a["classify_reason"], source, now, existing["id"]))
+            updated += 1
+        else:
+            db.execute(
+                "INSERT INTO assets(ip, hostname, description, owner, criticality, "
+                "asset_type, scan_policy, scan_eligible, classify_reason, source, "
+                "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                (a["ip"], a["hostname"], a["description"], a["owner"], a["criticality"],
+                 a["asset_type"], a["scan_policy"], a["scan_eligible"],
+                 a["classify_reason"], source, now, now))
+            added += 1
+    db.commit()
+    return added, updated
+
+
+@app.route("/inventory/sync", methods=["POST"])
+@auth.role_required("admin", "editor")
+def inventory_sync():
+    db = get_db()
+    me = auth.current_user(db)
+    if not zoho.secrets_configured():
+        flash("Zoho credentials aren't set in the server environment — see Settings → Zoho sync.")
+        return redirect(url_for("inventory"))
+    conn = _zoho_conn(db)
+    mapping = _zoho_mapping(db)
+    if not (conn["owner"] and conn["app"] and conn["report"]):
+        flash("Set the Zoho app owner, app and report in Settings → Zoho sync first.")
+        return redirect(url_for("inventory"))
+    if not (mapping.get("ip") or mapping.get("hostname")):
+        flash("Map at least the IP or hostname field in Settings → Zoho sync.")
+        return redirect(url_for("inventory"))
+    try:
+        records = zoho.fetch_records(conn)
+        assets = zoho.map_records(records, mapping)
+    except zoho.ZohoError as e:
+        set_setting(db, "zoho_last_status", "error")
+        set_setting(db, "zoho_last_detail", str(e)[:300])
+        set_setting(db, "zoho_last_at", datetime.now().isoformat(timespec="seconds"))
+        db.commit()
+        auth.log_activity(db, me["id"], None, "inventory", f"Zoho sync failed: {str(e)[:120]}")
+        flash(f"Zoho sync failed — {e}")
+        return redirect(url_for("inventory"))
+    added, upd = _upsert_assets(db, assets, "zoho")
+    set_setting(db, "zoho_last_status", "ok")
+    set_setting(db, "zoho_last_detail", f"{len(assets)} pulled · {added} new, {upd} updated")
+    set_setting(db, "zoho_last_at", datetime.now().isoformat(timespec="seconds"))
+    db.commit()
+    auth.log_activity(db, me["id"], None, "inventory",
+                      f"Zoho sync: {len(assets)} assets ({added} new, {upd} updated)")
+    flash(f"Synced {len(assets)} asset(s) from Zoho — {added} new, {upd} updated.")
+    return redirect(url_for("inventory"))
+
+
+@app.route("/settings/zoho", methods=["POST"])
+@auth.role_required("admin")
+def settings_zoho():
+    db = get_db()
+    me = auth.current_user(db)
+    dc = (request.form.get("zoho_dc") or "com").strip()
+    if dc not in zoho.DATA_CENTERS:
+        dc = "com"
+    set_setting(db, "zoho_dc", dc)
+    set_setting(db, "zoho_owner", (request.form.get("zoho_owner") or "").strip()[:120])
+    set_setting(db, "zoho_app", (request.form.get("zoho_app") or "").strip()[:120])
+    set_setting(db, "zoho_report", (request.form.get("zoho_report") or "").strip()[:120])
+    mapping = {k: (request.form.get("map_" + k) or "").strip()[:120]
+               for k, _ in zoho.MAP_FIELDS}
+    set_setting(db, "zoho_mapping", _json.dumps(mapping))
+    db.commit()
+    auth.log_activity(db, me["id"], None, "settings", "updated Zoho sync settings")
+    flash("Zoho sync settings saved.")
+    return redirect(url_for("settings_page", section="zoho"))
 
 
 def _recipients_for(db, campaign_id):
@@ -1988,9 +2113,17 @@ def inventory():
             counts["never_assessed"] += 1
         if not a["criticality"] or a["asset_type"] == "Unknown":
             counts["unclassified"] += 1
+    conn = _zoho_conn(db)
+    zoho_ready = (zoho.secrets_configured() and conn["owner"] and conn["app"]
+                  and conn["report"])
     return render_template("inventory.html", assets=assets, counts=counts,
                            types=asset_classify.TYPES, crits=asset_classify.CRITICALITY,
-                           policies=sorted(set(asset_classify.SCAN_POLICY.values())))
+                           policies=sorted(set(asset_classify.SCAN_POLICY.values())),
+                           zoho_ready=zoho_ready,
+                           zoho_status={"status": get_setting(db, "zoho_last_status", ""),
+                                        "detail": get_setting(db, "zoho_last_detail", ""),
+                                        "at": get_setting(db, "zoho_last_at", "")},
+                           can_manage=auth.can_import_or_scan(auth.current_user(db)))
 
 
 @app.route("/inventory/import", methods=["GET", "POST"])

@@ -1006,3 +1006,9 @@ tr.rowlink:hover td { background: var(--panel-3); }
 .umenu-reset { display: flex; gap: 6px; align-items: center; border-top: 1px solid var(--line-soft);
   border-bottom: 1px solid var(--line-soft); padding: 8px 0; margin: 2px 0; }
 .umenu-reset input { flex: 1; min-width: 0; font-size: 12px; padding: 6px 8px; }
+
+/* Zoho sync status note on the register */
+.synced-note { font-size: 12.5px; padding: 8px 13px; border-radius: var(--radius);
+  margin: 0 0 16px; border: 1px solid var(--line-soft); }
+.synced-note.ok { color: var(--low); background: var(--low-bg); border-color: color-mix(in srgb, var(--low) 30%, transparent); }
+.synced-note.err { color: var(--high); background: color-mix(in srgb, var(--high) 10%, transparent); border-color: color-mix(in srgb, var(--high) 35%, transparent); }

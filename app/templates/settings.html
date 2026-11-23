@@ -2,7 +2,7 @@
 {% block title %}Settings · Argus{% endblock %}
 {% block body %}
 
-{% set titles = {'feeds': 'Threat-feed settings', 'frameworks': 'Compliance frameworks', 'delivery': 'Phishing delivery settings', 'instance': 'This instance'} %}
+{% set titles = {'feeds': 'Threat-feed settings', 'frameworks': 'Compliance frameworks', 'delivery': 'Phishing delivery settings', 'instance': 'This instance', 'zoho': 'Zoho Creator sync'} %}
 {% if section %}
 <p class="crumb"><a href="{{ url_for('settings_page') }}">Settings</a> ›</p>
 <h1>{{ titles[section] }}</h1>
@@ -34,6 +34,44 @@
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <input type="text" name="instance_label" value="{{ instance_label }}" placeholder="e.g. PAIX Data Centres — Accra" style="max-width:360px">
         <button class="btn primary" type="submit">Save</button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if section in ['', 'zoho'] %}
+    <div class="card">
+      <h3>Zoho Creator inventory sync</h3>
+      <div class="secnote"><b>Heads up — this reaches the internet.</b> Argus is offline by default, but this feature pulls your asset inventory from Zoho Creator's cloud API. It is <b>read-only</b> (Argus never writes back to Zoho), host-pinned to Zoho, and the OAuth secrets are read from the <b>server environment</b>, never stored here.</div>
+      <div class="prov-row"><span class="src-name">Credentials (environment)</span>
+        {% if zoho_secrets_ok %}<span class="risk Low sm">configured</span>{% else %}<span class="muted">not set</span>{% endif %}
+      </div>
+      <pre class="envblock">ARGUS_ZOHO_CLIENT_ID=1000...
+ARGUS_ZOHO_CLIENT_SECRET=••••••
+ARGUS_ZOHO_REFRESH_TOKEN=1000...  # from a Zoho self-client, scope ZohoCreator.report.READ</pre>
+      {% if zoho_status.status %}
+      <div class="prov-row"><span class="src-name">Last sync</span>
+        {% if zoho_status.status == 'ok' %}<span class="hbadge ok" title="{{ zoho_status.at }}">{{ zoho_status.detail }}</span>
+        {% else %}<span class="hbadge err" title="{{ zoho_status.detail }}">failed</span>{% endif %}
+      </div>
+      {% endif %}
+      <form method="post" action="{{ url_for('settings_zoho') }}" class="stack" style="margin-top:14px">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <div class="grid-2">
+          <div class="field"><label>Data centre</label>
+            <select name="zoho_dc">{% for d in zoho_dcs %}<option value="{{ d }}" {{ 'selected' if zoho_conn.dc==d }}>zoho.{{ d }}</option>{% endfor %}</select>
+          </div>
+          <div class="field"><label>Application owner name</label><input name="zoho_owner" value="{{ zoho_conn.owner }}" placeholder="account owner / app owner"></div>
+          <div class="field"><label>App link name</label><input name="zoho_app" value="{{ zoho_conn.app }}" placeholder="e.g. asset-management"></div>
+          <div class="field"><label>Report link name</label><input name="zoho_report" value="{{ zoho_conn.report }}" placeholder="e.g. All_Assets"></div>
+        </div>
+        <label class="lbl" style="margin-top:4px">Field mapping — which Zoho field holds each asset detail (field link names):</label>
+        <div class="grid-2">
+          {% for key, label in zoho_fields %}
+          <div class="field"><label>{{ label }}</label><input name="map_{{ key }}" value="{{ zoho_mapping[key] }}" placeholder="Zoho field name"></div>
+          {% endfor %}
+        </div>
+        <p class="card-sub">Map at least IP or Hostname. Criticality and type are classified exactly like a file import, so OT assets are still marked do-not-scan. Run the sync itself from the <a href="{{ url_for('inventory') }}">Asset register</a>.</p>
+        <button class="btn primary" type="submit">Save Zoho settings</button>
       </form>
     </div>
     {% endif %}
