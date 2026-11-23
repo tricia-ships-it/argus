@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ snap.title or 'Shared dashboard' }} · Argus{% endblock %}
+{% block body %}
+
+<div class="page-head">
+  <div>
+    <p class="crumb"><a href="{{ url_for('shared_list') }}">Shared dashboards</a> ›</p>
+    <h1>{{ snap.title or 'Dashboard snapshot' }}</h1>
+    <p class="lede">Shared snapshot from <b>{{ snap.source or 'another Argus' }}</b>{% if snap.generated_by %}, exported by {{ snap.generated_by }}{% endif %}{% if snap.generated_at %} on {{ snap.generated_at[:16].replace('T',' ') }}{% endif %}. Read-only, as reported by the sender.</p>
+  </div>
+  <div class="head-actions">
+    {% if can_manage %}
+    <form method="post" action="{{ url_for('shared_delete', sid=snap.id) }}" onsubmit="return confirm('Remove this shared snapshot?')">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn ghost danger" type="submit">Remove</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if not snap.integrity_ok %}
+<div class="notice-banner warn">
+  <div class="nb-icon">⚠</div>
+  <div><b>This snapshot couldn't be verified.</b> Its checksum didn't match its contents, so the numbers may have been altered after it was exported. Treat the figures with caution.</div>
+</div>
+{% endif %}
+
+<div id="dash-root"></div>
+
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='charts.js') }}"></script>
+<script>
+// read-only snapshot data, inlined as plain data (no live fetch, no links back)
+const d = {{ data|tojson }};
+(function () {
+  const root = document.getElementById('dash-root');
+  const t = d.totals || {};
+  root.innerHTML = `
+    <div class="dash-grid">
+      <div class="card col-3 kpi"><div class="kpi-n count" data-count="${t.total||0}">${t.total||0}</div><div class="kpi-l">Total findings</div></div>
+      <div class="card col-3 kpi crit"><div class="kpi-n count" data-count="${t.critical||0}">${t.critical||0}</div><div class="kpi-l">Critical (actual risk)</div></div>
+      <div class="card col-3 kpi high"><div class="kpi-n count" data-count="${t.high||0}">${t.high||0}</div><div class="kpi-l">High (actual risk)</div></div>
+      <div class="card col-3 kpi breach"><div class="kpi-n count" data-count="${t.breached||0}">${t.breached||0}</div><div class="kpi-l">Risk tolerance breached</div></div>
+
+      <div class="card col-4"><h3>Actual risk classification</h3><div class="card-sub">Severity after asset criticality + exploit</div><div id="c-risk"></div></div>
+      <div class="card col-4"><h3>Remediation status</h3><div class="card-sub">Where every finding stands</div><div id="c-status"></div></div>
+      <div class="card col-4"><h3>Risk tolerance objective</h3><div class="card-sub">Met vs breached vs not yet resolved</div><div id="c-rto"></div></div>
+
+      <div class="card col-6"><h3>Remediation progress</h3>
+        <div class="card-sub">${t.fixed||0} fixed, ${t.open||0} open${t.overdue ? ', <span style="color:var(--high)">'+t.overdue+' past target date</span>' : ''}</div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-top:4px">
+          <span class="kpi-n" style="color:var(--met);font-family:var(--mono);font-size:30px;font-weight:600">${t.remediation_rate||0}%</span>
+          <span style="font-size:12px;color:var(--ink-dim)">resolved</span>
+        </div>
+        <div class="meter"><span style="width:${t.remediation_rate||0}%"></span></div>
+      </div>
+      <div class="card col-6"><h3>Findings by asset owner</h3><div class="card-sub">Who holds the most work</div><div id="c-owners"></div></div>
+
+      <div class="card col-6"><h3>Reported severity (scanner)</h3><div class="card-sub">As the scan engine rated each finding</div><div id="c-reported"></div></div>
+      <div class="card col-6"><h3>Exploit availability</h3><div class="card-sub">Public exploit known for the vulnerability</div><div id="c-exploit"></div></div>
+    </div>`;
+
+  if (window.vaptEnhance) window.vaptEnhance(root);
+  const toArr = (obj) => Object.keys(obj || {}).map(k => ({label: k, value: obj[k]})).filter(x => x.value > 0);
+
+  VChart.donut(document.getElementById('c-risk'), toArr(d.by_actual_risk), {centerLabelText: 'findings'});
+  VChart.donut(document.getElementById('c-rto'),
+    [{label:'Met',value:(d.by_rto||{}).Met||0},{label:'Breached',value:(d.by_rto||{}).Breached||0},
+     {label:'Not Applicable',value:(d.by_rto||{})['Not Applicable']||0},{label:'Open',value:(d.by_rto||{}).Open||0}].filter(x=>x.value>0),
+    {centerValue: (d.by_rto||{}).Breached||0, centerLabelText: 'breached'});
+  VChart.donut(document.getElementById('c-exploit'), toArr(d.by_exploit), {centerLabelText: 'findings'});
+  VChart.hbars(document.getElementById('c-status'), toArr(d.by_status), {byLabel: true});
+  VChart.hbars(document.getElementById('c-reported'), toArr(d.by_reported), {byLabel: true});
+  VChart.hbars(document.getElementById('c-owners'), (d.top_owners||[]).map(o => ({label:o[0], value:o[1]})), {});
+})();
+</script>
+{% endblock %}

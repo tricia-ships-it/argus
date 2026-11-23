@@ -2,7 +2,7 @@
 {% block title %}Settings · Argus{% endblock %}
 {% block body %}
 
-{% set titles = {'feeds': 'Threat-feed settings', 'frameworks': 'Compliance frameworks', 'delivery': 'Phishing delivery settings'} %}
+{% set titles = {'feeds': 'Threat-feed settings', 'frameworks': 'Compliance frameworks', 'delivery': 'Phishing delivery settings', 'instance': 'This instance'} %}
 {% if section %}
 <p class="crumb"><a href="{{ url_for('settings_page') }}">Settings</a> ›</p>
 <h1>{{ titles[section] }}</h1>
@@ -26,6 +26,18 @@
 
 <div class="detail-grid">
   <div class="detail-main">
+    {% if section in ['', 'instance'] %}
+    <div class="card">
+      <h3>This instance</h3>
+      <p class="card-sub">A name for this Argus deployment, shown on dashboard snapshots you export so recipients know whose posture they're looking at.</p>
+      <form method="post" action="{{ url_for('settings_instance') }}" class="inline" style="gap:10px;align-items:center">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="text" name="instance_label" value="{{ instance_label }}" placeholder="e.g. PAIX Data Centres — Accra" style="max-width:360px">
+        <button class="btn primary" type="submit">Save</button>
+      </form>
+    </div>
+    {% endif %}
+
     {% if section in ['', 'feeds'] %}
     <div class="card">
       <h3>Threat-feed updates</h3>

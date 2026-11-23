@@ -34,6 +34,7 @@ import threatintel
 import phishing
 import delivery
 import sending
+import snapshots
 import csv as _csv
 import json as _json
 import threading
@@ -42,6 +43,7 @@ from datetime import timedelta
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(APP_DIR, "vapt.db")
+APP_VERSION = "1.0"
 
 app = Flask(__name__)
 app.secret_key = auth.load_or_create_secret(APP_DIR)
@@ -226,6 +228,12 @@ def init_db():
             recipient_id INTEGER, campaign_id INTEGER,
             kind TEXT, at TEXT, user_agent TEXT,
             FOREIGN KEY(recipient_id) REFERENCES phish_recipient(id)
+        );
+        CREATE TABLE IF NOT EXISTS shared_snapshot (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT, source TEXT, generated_at TEXT, generated_by TEXT,
+            app_version TEXT, integrity_ok INTEGER, payload TEXT,
+            imported_by TEXT, imported_at TEXT
         );
         CREATE TABLE IF NOT EXISTS phish_send_job (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -614,8 +622,110 @@ def dashboard():
 @app.route("/dashboard/data")
 @auth.login_required
 def dashboard_data():
-    """Aggregations for the dashboard charts, computed from live findings."""
+    return jsonify(_dashboard_aggregates(get_db()))
+
+
+# --- Shareable dashboard snapshots (export + import) -----------------------
+@app.route("/dashboard/share")
+@auth.login_required
+def dashboard_share():
+    """Export the current dashboard as a read-only snapshot file. Air-gap safe:
+    plain data, no connection back, opens in another Argus or (later) a viewer."""
     db = get_db()
+    me = auth.current_user(db)
+    source = get_setting(db, "instance_label", "") or "Argus instance"
+    title = (request.args.get("title") or f"{source} — dashboard").strip()[:160]
+    js = snapshots.build(_dashboard_aggregates(db), title, source,
+                         me["username"], APP_VERSION,
+                         datetime.now().isoformat(timespec="seconds"))
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", source)[:40] or "argus"
+    fname = f"argus-dashboard-{safe}-{date.today().isoformat()}.json"
+    return send_file(io.BytesIO(js.encode("utf-8")), mimetype="application/json",
+                     as_attachment=True, download_name=fname)
+
+
+@app.route("/dashboard/shared")
+@auth.login_required
+def shared_list():
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, title, source, generated_at, generated_by, integrity_ok, "
+        "imported_by, imported_at FROM shared_snapshot ORDER BY id DESC").fetchall()
+    return render_template("shared_list.html", snapshots=rows,
+                           can_manage=auth.can_import_or_scan(auth.current_user(db)))
+
+
+@app.route("/dashboard/shared/import", methods=["POST"])
+@auth.role_required("admin", "editor")
+def shared_import():
+    db = get_db()
+    me = auth.current_user(db)
+    f = request.files.get("snapshot")
+    if not f or not f.filename:
+        flash("Choose a snapshot file to open.")
+        return redirect(url_for("shared_list"))
+    raw = f.read(snapshots.MAX_BYTES + 1)   # bounded read
+    try:
+        snap = snapshots.parse(raw)
+    except snapshots.SnapshotError as e:
+        flash(f"Couldn't open that snapshot — {e}")
+        return redirect(url_for("shared_list"))
+    cur = db.execute(
+        "INSERT INTO shared_snapshot(title, source, generated_at, generated_by, "
+        "app_version, integrity_ok, payload, imported_by, imported_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        (snap["title"], snap["source"], snap["generated_at"], snap["generated_by"],
+         snap["app_version"], 1 if snap["integrity_ok"] else 0,
+         _json.dumps(snap["data"]), me["username"],
+         datetime.now().isoformat(timespec="seconds")))
+    db.commit()
+    auth.log_activity(db, me["id"], None, "shared",
+                      f"opened shared snapshot '{snap['title']}'")
+    flash("Snapshot opened." + ("" if snap["integrity_ok"] else
+          " Note: its checksum didn't match, so the numbers may have been changed in transit."))
+    return redirect(url_for("shared_view", sid=cur.lastrowid))
+
+
+@app.route("/dashboard/shared/<int:sid>")
+@auth.login_required
+def shared_view(sid):
+    db = get_db()
+    row = db.execute("SELECT * FROM shared_snapshot WHERE id=?", (sid,)).fetchone()
+    if not row:
+        abort(404)
+    data = _json.loads(row["payload"])
+    return render_template("shared_view.html", snap=row, data=data,
+                           can_manage=auth.can_import_or_scan(auth.current_user(db)))
+
+
+@app.route("/dashboard/shared/<int:sid>/delete", methods=["POST"])
+@auth.role_required("admin", "editor")
+def shared_delete(sid):
+    db = get_db()
+    me = auth.current_user(db)
+    if not db.execute("SELECT 1 FROM shared_snapshot WHERE id=?", (sid,)).fetchone():
+        abort(404)
+    db.execute("DELETE FROM shared_snapshot WHERE id=?", (sid,))
+    db.commit()
+    auth.log_activity(db, me["id"], None, "shared", f"removed shared snapshot #{sid}")
+    flash("Snapshot removed.")
+    return redirect(url_for("shared_list"))
+
+
+@app.route("/settings/instance", methods=["POST"])
+@auth.role_required("admin")
+def settings_instance():
+    db = get_db()
+    me = auth.current_user(db)
+    set_setting(db, "instance_label", (request.form.get("instance_label") or "").strip()[:160])
+    db.commit()
+    auth.log_activity(db, me["id"], None, "settings", "updated instance label")
+    flash("Instance label saved.")
+    return redirect(url_for("settings_page"))
+
+
+def _dashboard_aggregates(db):
+    """Aggregations for the dashboard charts, computed from live findings."""
     rows = [enrich(r) for r in db.execute("SELECT * FROM findings")]
     today = date.today()
 
@@ -677,7 +787,7 @@ def dashboard_data():
     resolved = fixed + open_vs_closed["Not Applicable"]
     rem_rate = round(100 * resolved / total) if total else 0
 
-    return jsonify({
+    return {
         "totals": {
             "total": total, "critical": crit, "high": high,
             "open": open_count, "fixed": fixed, "breached": breached,
@@ -690,7 +800,7 @@ def dashboard_data():
         "by_exploit": by_exploit,
         "top_owners": top_owners,
         "open_vs_closed": open_vs_closed,
-    })
+    }
 
 
 @app.route("/finding/new", methods=["GET", "POST"])
@@ -1116,7 +1226,7 @@ def _enabled_frameworks(db):
 def settings_page():
     db = get_db()
     section = request.args.get("section", "")
-    if section not in ("", "feeds", "frameworks", "delivery"):
+    if section not in ("", "feeds", "frameworks", "delivery", "instance"):
         section = ""
     sources = _all_sources(db)
     enabled_fw = set(_enabled_frameworks(db))
@@ -1124,6 +1234,7 @@ def settings_page():
     return render_template(
         "settings.html", sources=sources, source_kinds=threatintel.SOURCE_KINDS,
         unhealthy=_unhealthy_sources(db), frameworks=frameworks, section=section,
+        instance_label=get_setting(db, "instance_label", ""),
         ti_enabled=(get_setting(db, "ti_enabled", "0") == "1"),
         ti_proxy=get_setting(db, "ti_proxy", "") or "",
         last_update=get_setting(db, "ti_last_update", ""),
