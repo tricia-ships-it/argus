@@ -54,7 +54,7 @@ def _build_with_reportlab(rows, stats):
                            f"{stats['breached']} risk-tolerance breaches", sub))
     story.append(Spacer(1, 6 * mm))
 
-    head = ["IP / Host", "Vulnerability", "CVE", "Actual Risk", "Detected",
+    head = ["IP / Host", "Vulnerability", "CVE", "CVSS", "Actual Risk", "Detected",
             "Target Fix", "Status", "Risk Tol.", "Owner"]
     data = [[Paragraph(h, cellb) for h in head]]
     for r in rows:
@@ -62,6 +62,7 @@ def _build_with_reportlab(rows, stats):
             Paragraph(_esc(r.get("ip_hostname", "")), cell),
             Paragraph(_esc(r.get("vulnerability", ""))[:140], cell),
             Paragraph(_esc(r.get("cve", "")), cell),
+            Paragraph(_esc(r.get("cvss_score_disp", "")), cell),
             Paragraph(_esc(r.get("actual_risk_classification", "")), cell),
             Paragraph(_esc(r.get("detection_date_disp", "")), cell),
             Paragraph(_esc(r.get("target_fix_date", "")), cell),
@@ -69,7 +70,7 @@ def _build_with_reportlab(rows, stats):
             Paragraph(_esc(r.get("risk_tolerance_objective", "")), cell),
             Paragraph(_esc(r.get("asset_owner", "")), cell),
         ])
-    col_widths = [26 * mm, 70 * mm, 30 * mm, 20 * mm, 22 * mm, 22 * mm, 22 * mm, 20 * mm, 22 * mm]
+    col_widths = [26 * mm, 58 * mm, 28 * mm, 14 * mm, 20 * mm, 22 * mm, 22 * mm, 22 * mm, 20 * mm, 22 * mm]
     t = Table(data, colWidths=col_widths, repeatRows=1)
     style = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1F4E78")),
@@ -81,11 +82,11 @@ def _build_with_reportlab(rows, stats):
     # colour the Actual Risk cell per row
     for i, r in enumerate(rows, start=1):
         c = RISK_COLORS.get(r.get("actual_risk_classification", ""), "#868e96")
-        style.append(("TEXTCOLOR", (3, i), (3, i), colors.HexColor(c)))
-        style.append(("FONTNAME", (3, i), (3, i), "Helvetica-Bold"))
+        style.append(("TEXTCOLOR", (4, i), (4, i), colors.HexColor(c)))
+        style.append(("FONTNAME", (4, i), (4, i), "Helvetica-Bold"))
         if r.get("risk_tolerance_objective") == "Breached":
-            style.append(("TEXTCOLOR", (7, i), (7, i), colors.HexColor("#b00020")))
-            style.append(("FONTNAME", (7, i), (7, i), "Helvetica-Bold"))
+            style.append(("TEXTCOLOR", (8, i), (8, i), colors.HexColor("#b00020")))
+            style.append(("FONTNAME", (8, i), (8, i), "Helvetica-Bold"))
     t.setStyle(TableStyle(style))
     story.append(t)
     doc.build(story)
@@ -106,6 +107,7 @@ def _build_html(rows, stats):
             <td>{_esc(r.get('ip_hostname',''))}</td>
             <td>{_esc(r.get('vulnerability',''))}</td>
             <td>{_esc(r.get('cve',''))}</td>
+            <td>{_esc(r.get('cvss_score_disp',''))}</td>
             <td style="color:{color};font-weight:bold">{_esc(r.get('actual_risk_classification',''))}</td>
             <td>{_esc(r.get('detection_date_disp',''))}</td>
             <td>{_esc(r.get('target_fix_date',''))}</td>
@@ -129,7 +131,7 @@ def _build_html(rows, stats):
  {stats['total']} findings · {stats['critical']} Critical, {stats['high']} High ·
  {stats['breached']} risk-tolerance breaches &nbsp;—&nbsp; <em>Use your browser's Print → Save as PDF.</em></div>
 <table><thead><tr>
- <th>IP / Host</th><th>Vulnerability</th><th>CVE</th><th>Actual Risk</th>
+ <th>IP / Host</th><th>Vulnerability</th><th>CVE</th><th>CVSS</th><th>Actual Risk</th>
  <th>Detected</th><th>Target Fix</th><th>Status</th><th>Risk Tolerance</th><th>Owner</th>
 </tr></thead><tbody>{''.join(trs)}</tbody></table>
 </body></html>"""

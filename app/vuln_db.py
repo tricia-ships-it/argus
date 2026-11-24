@@ -99,9 +99,39 @@ VERSION_RULES = [
         "definition": "A race condition in OpenSSH's signal handling (sshd) on glibc-based Linux can allow "
                       "unauthenticated remote code execution. Affects sshd from 8.5p1 up to before 9.8p1.",
         "severity": "Critical",
+        "cvss": 8.1, "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
         "exploit": "Yes",
         "reference": "https://www.openssh.com/releasenotes.html",
         "solution": "Upgrade OpenSSH to 9.8p1 or later, or apply your distribution's backported fix.",
+    },
+    {
+        "product": "openssh",
+        "lo": "0", "hi_exclusive": "7.7",
+        "cve": "CVE-2018-15473",
+        "title": "OpenSSH username enumeration (CVE-2018-15473)",
+        "synopsis": "OpenSSH before 7.7 allows remote attackers to test whether a username exists.",
+        "definition": "A difference in how sshd before 7.7 handles authentication requests for valid and "
+                      "invalid users lets an unauthenticated attacker enumerate valid usernames, aiding "
+                      "targeted password attacks.",
+        "severity": "Medium",
+        "cvss": 5.3, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "exploit": "Yes",
+        "reference": "https://nvd.nist.gov/vuln/detail/CVE-2018-15473",
+        "solution": "Upgrade OpenSSH to 7.7 or later.",
+    },
+    {
+        "product": "openssh",
+        "lo": "5.5", "hi_exclusive": "9.3.2",
+        "cve": "CVE-2023-38408",
+        "title": "OpenSSH ssh-agent PKCS#11 RCE (CVE-2023-38408)",
+        "synopsis": "OpenSSH before 9.3p2 can allow remote code execution via a forwarded ssh-agent.",
+        "definition": "An incomplete constraint on PKCS#11 providers in ssh-agent before 9.3p2 can allow remote "
+                      "code execution when an agent is forwarded to an attacker-controlled host.",
+        "severity": "Critical",
+        "cvss": 9.8, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "exploit": "Yes",
+        "reference": "https://nvd.nist.gov/vuln/detail/CVE-2023-38408",
+        "solution": "Upgrade OpenSSH to 9.3p2 or later and avoid forwarding agents to untrusted hosts.",
     },
     {
         "product": "openssl",
@@ -112,6 +142,7 @@ VERSION_RULES = [
         "definition": "Two buffer overflows in OpenSSL 3.0.x punycode decoding (CVE-2022-3602 / -3786) can "
                       "cause crashes and, in some conditions, code execution.",
         "severity": "High",
+        "cvss": 7.5, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
         "exploit": "No",
         "reference": "https://www.openssl.org/news/secadv/20221101.txt",
         "solution": "Upgrade OpenSSL to 3.0.7 or later.",
@@ -125,6 +156,7 @@ VERSION_RULES = [
         "definition": "A path normalisation flaw in Apache httpd 2.4.49 allows path traversal and, with "
                       "mod_cgi enabled, remote code execution.",
         "severity": "Critical",
+        "cvss": 9.8, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
         "exploit": "Yes",
         "reference": "https://httpd.apache.org/security/vulnerabilities_24.html",
         "solution": "Upgrade Apache httpd to 2.4.51 or later.",
@@ -138,9 +170,53 @@ VERSION_RULES = [
         "definition": "The 2.4.50 fix for CVE-2021-41773 was incomplete; 2.4.50 is still vulnerable to path "
                       "traversal and potential RCE.",
         "severity": "Critical",
+        "cvss": 9.8, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
         "exploit": "Yes",
         "reference": "https://httpd.apache.org/security/vulnerabilities_24.html",
         "solution": "Upgrade Apache httpd to 2.4.51 or later.",
+    },
+    {
+        "product": "tomcat",
+        "lo": "0", "hi_exclusive": "9.0.31",
+        "cve": "CVE-2020-1938",
+        "title": "Ghostcat — Tomcat AJP file read / RCE (CVE-2020-1938)",
+        "synopsis": "Apache Tomcat with an exposed AJP connector may disclose files or allow code execution.",
+        "definition": "When the AJP connector (default port 8009) is reachable, a flaw in Tomcat before 9.0.31 "
+                      "(and older 7.x/8.x) allows reading files inside the web root and, where uploads are "
+                      "possible, remote code execution.",
+        "severity": "Critical",
+        "cvss": 9.8, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "exploit": "Yes",
+        "reference": "https://nvd.nist.gov/vuln/detail/CVE-2020-1938",
+        "solution": "Upgrade Tomcat and ensure the AJP connector is disabled or firewalled if unused.",
+    },
+    {
+        "product": "nginx",
+        "lo": "0", "hi_exclusive": "1.17.7",
+        "cve": "CVE-2019-20372",
+        "title": "nginx error_page request smuggling (CVE-2019-20372)",
+        "synopsis": "nginx before 1.17.7 with certain error_page configs allows HTTP request smuggling.",
+        "definition": "nginx before 1.17.7, in configurations using error_page to redirect, can be abused for "
+                      "HTTP request smuggling, potentially bypassing access controls.",
+        "severity": "Medium",
+        "cvss": 5.3, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+        "exploit": "No",
+        "reference": "https://nvd.nist.gov/vuln/detail/CVE-2019-20372",
+        "solution": "Upgrade nginx to 1.17.7 or later.",
+    },
+    {
+        "product": "proftpd",
+        "lo": "1.3.5", "hi_inclusive": "1.3.5",
+        "cve": "CVE-2015-3306",
+        "title": "ProFTPD mod_copy arbitrary file read/write (CVE-2015-3306)",
+        "synopsis": "ProFTPD 1.3.5 with mod_copy allows unauthenticated file copy, leading to RCE.",
+        "definition": "The mod_copy module in ProFTPD 1.3.5 lets unauthenticated clients use SITE CPFR/CPTO to "
+                      "copy files, which can be chained to write a web shell and gain remote code execution.",
+        "severity": "Critical",
+        "cvss": 9.8, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "exploit": "Yes",
+        "reference": "https://nvd.nist.gov/vuln/detail/CVE-2015-3306",
+        "solution": "Upgrade ProFTPD to 1.3.5a or later, or disable mod_copy.",
     },
     {
         "product": "vsftpd",
@@ -150,6 +226,7 @@ VERSION_RULES = [
         "synopsis": "vsftpd 2.3.4 shipped with a known backdoor.",
         "definition": "A compromised vsftpd 2.3.4 tarball contained a backdoor opening a root shell on port 6200.",
         "severity": "Critical",
+        "cvss": 9.8, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
         "exploit": "Yes",
         "reference": "https://nvd.nist.gov/vuln/detail/CVE-2011-2523",
         "solution": "Replace with a clean, current vsftpd build immediately.",
@@ -163,6 +240,7 @@ VERSION_RULES = [
         "definition": "Improper validation of recipient addresses in Exim before 4.92 allows remote command "
                       "execution (CVE-2019-10149).",
         "severity": "Critical",
+        "cvss": 9.8, "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
         "exploit": "Yes",
         "reference": "https://nvd.nist.gov/vuln/detail/CVE-2019-10149",
         "solution": "Upgrade Exim to 4.92 or later.",
@@ -183,6 +261,7 @@ def match_cves(product, version):
                 "synopsis": f"{product} {version} appears to be on an end-of-life branch.",
                 "definition": rule["note"],
                 "severity": "Critical",
+                "cvss": None, "cvss_vector": "",
                 "exploit": "No",
                 "reference": "",
                 "solution": "Upgrade to a vendor-supported release that still receives security updates.",
@@ -195,9 +274,12 @@ def match_cves(product, version):
         if in_range(version, lo=lo,
                     hi_exclusive=rule.get("hi_exclusive"),
                     hi_inclusive=rule.get("hi_inclusive")):
-            out.append({k: rule[k] for k in
-                        ("cve", "title", "synopsis", "definition", "severity",
-                         "exploit", "reference", "solution")})
+            frag = {k: rule[k] for k in
+                    ("cve", "title", "synopsis", "definition", "severity",
+                     "exploit", "reference", "solution")}
+            frag["cvss"] = rule.get("cvss")
+            frag["cvss_vector"] = rule.get("cvss_vector", "")
+            out.append(frag)
     return out
 
 
@@ -243,4 +325,15 @@ if __name__ == "__main__":
     assert match_cves("OpenSSL", "3.0.8") == []  # patched
     assert any(h["severity"] == "Critical" for h in match_cves("Apache", "2.4.49"))
     assert any("End-of-Life" in h["title"] for h in match_cves("Apache", "2.2.15"))
+    # CVSS is carried through on version rules
+    hit = [h for h in match_cves("OpenSSH", "9.6") if "regreSSHion" in h["title"]][0]
+    assert hit["cvss"] == 8.1 and hit["cvss_vector"].startswith("CVSS:3.1"), hit
+    # new rules match where expected and not outside their range
+    assert any("Ghostcat" in h["title"] for h in match_cves("Tomcat", "9.0.30"))
+    assert not any("Ghostcat" in h["title"] for h in match_cves("Tomcat", "9.0.40"))
+    assert any("username enumeration" in h["title"] for h in match_cves("OpenSSH", "7.6"))
+    assert any("mod_copy" in h["title"] for h in match_cves("ProFTPD", "1.3.5"))
+    # EOL fragments carry explicit empty CVSS, never a bogus score
+    eol = [h for h in match_cves("Apache", "2.2.15") if "End-of-Life" in h["title"]][0]
+    assert eol["cvss"] is None and eol["cvss_vector"] == ""
     print("vuln_db self-test passed")

@@ -18,7 +18,15 @@
       <div class="d"><div class="k">Target Fix Date</div><div class="v">{{ finding.target_fix_date or '—' }}</div></div>
       <div class="d"><div class="k">Time to Fix (days)</div><div class="v">{{ finding.time_to_fix_days if finding.time_to_fix_days != '' else '—' }}</div></div>
       <div class="d"><div class="k">Risk Tolerance Objective</div><div class="v"><span class="rto {{ 'NA' if finding.risk_tolerance_objective=='Not Applicable' else finding.risk_tolerance_objective }}">{{ finding.risk_tolerance_objective or '—' }}</span></div></div>
+      <div class="d"><div class="k">CVSS base score</div><div class="v">
+        {% if finding.cvss_score_disp %}<span class="risk {{ finding.cvss_severity }}">{{ finding.cvss_score_disp }}</span> <span class="muted">{{ finding.cvss_severity }}</span>{% else %}—{% endif %}
+      </div></div>
     </div>
+    {% if finding.cvss_breakdown %}
+    <p class="note">CVSS v3.1 base vector:
+      {% for label, value in finding.cvss_breakdown.readable %}{{ label }} {{ value }}{% if not loop.last %} · {% endif %}{% endfor %}
+    </p>
+    {% endif %}
     <p class="note">These update when you save. Actual Risk comes from Asset Classification × Reported Risk × Exploit. Target Fix = Detection + fix window (Critical +30, High +60, Medium +90, Low +120, Information none).</p>
   </div>
   {% endif %}
@@ -33,6 +41,8 @@
       <div class="field full"><label>Definition</label><textarea name="definition">{{ finding.definition or '' }}</textarea></div>
       <div class="field"><label>CVE (if applicable)</label><input name="cve" value="{{ finding.cve or '' }}" placeholder="CVE-2022-3602"></div>
       <div class="field"><label>Exploit Reference</label><input name="exploit_reference" value="{{ finding.exploit_reference or '' }}"></div>
+      <div class="field"><label>CVSS base score</label><input name="cvss_score" value="{{ finding.cvss_score_disp }}" placeholder="0.0–10.0" inputmode="decimal"></div>
+      <div class="field"><label>CVSS vector <span class="muted">(optional)</span></label><input name="cvss_vector" value="{{ finding.cvss_vector or '' }}" placeholder="CVSS:3.1/AV:N/AC:L/…"></div>
       <div class="field full"><label>Risk Statement</label><textarea name="risk_statement">{{ finding.risk_statement or '' }}</textarea></div>
       <div class="field full"><label>Solution</label><textarea name="solution">{{ finding.solution or '' }}</textarea></div>
     </div>

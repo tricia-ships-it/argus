@@ -30,6 +30,13 @@
   <div class="spacer"></div>
   <a class="btn" href="{{ url_for('export_excel') }}">Export Excel</a>
   <a class="btn" href="{{ url_for('export_pdf') }}">Export PDF</a>
+  {% if can_import_or_scan %}
+  <form method="post" action="{{ url_for('findings_recheck_kev') }}" style="display:inline"
+        title="Match every finding's CVE against the latest threat feed and flag any now listed as actively exploited">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button class="btn" type="submit">Re-check exploitation</button>
+  </form>
+  {% endif %}
 </form>
 
 {% if rows %}
@@ -42,6 +49,7 @@
       <th title="Short name of the security weakness that was found">Vulnerability</th>
       <th title="Plain-language explanation of what the vulnerability is and why it matters">Definition</th>
       <th title="The public CVE identifier for this vulnerability, where one exists">CVE</th>
+      <th title="CVSS v3.1 base score (0.0–10.0), where one is known for this finding">CVSS</th>
       <th title="Severity as rated by the scanner or assessor, before asset context is applied">Reported Risk Rating</th>
       <th title="Whether a public exploit is known to exist for this vulnerability">Exploit Available</th>
       <th title="Final risk after combining reported severity, asset criticality and exploit availability">Actual Risk Classification</th>
@@ -68,6 +76,7 @@
       </td>
       <td class="defn">{% if r.definition %}<span class="muted" style="font-size:11.5px">{{ r.definition|truncate(170) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
       <td class="cve">{{ r.cve or '—' }}</td>
+      <td class="nowrap mono">{% if r.cvss_score_disp %}<span class="risk {{ r.cvss_severity }}" title="{{ r.cvss_severity }}{% if r.cvss_vector %} · {{ r.cvss_vector }}{% endif %}">{{ r.cvss_score_disp }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
       <td class="nowrap">{% if r.reported_risk %}<span class="risk {{ r.reported_risk }}">{{ r.reported_risk }}</span>{% endif %}</td>
       <td class="mono nowrap">{{ r.exploit_available }}</td>
       <td class="nowrap"><span class="risk {{ r.actual_risk_classification }}" data-field="actual_risk">{{ r.actual_risk_classification or '—' }}</span></td>

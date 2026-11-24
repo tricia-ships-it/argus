@@ -20,7 +20,7 @@ HEADERS = [
     "Asset Owner", "Detection Date", "Target Fix Date", "Time to Fix (Days)",
     "Remediation Status", "Actual Fix Date", "Risk Tolerance Objective",
     "Exception Requested?", "Exception Approved By", "Revised Target Fix Date",
-    "Asset Owner's Comment", "Comment",
+    "Asset Owner's Comment", "Comment", "CVSS Base Score", "CVSS Vector",
 ]
 # source dict key per column letter (None = formula)
 KEYMAP = {
@@ -30,7 +30,7 @@ KEYMAP = {
     "M": "solution", "N": "asset_owner", "O": "detection_date", "P": None, "Q": None,
     "R": "remediation_status", "S": "actual_fix_date", "T": None, "U": "exception_requested",
     "V": "exception_approved_by", "W": "revised_target_fix_date", "X": "asset_owners_comment",
-    "Y": "comment",
+    "Y": "comment", "Z": "cvss_score", "AA": "cvss_vector",
 }
 AUTO_COLS = {"K", "P", "Q", "T"}
 DATE_KEYS = {"detection_date", "actual_fix_date", "revised_target_fix_date"}
@@ -66,7 +66,8 @@ def build_excel(rows):
 
     widths = {"A": 18, "B": 20, "C": 16, "D": 30, "E": 40, "F": 45, "G": 20, "H": 40,
               "I": 14, "J": 14, "K": 16, "L": 35, "M": 40, "N": 16, "O": 14, "P": 14,
-              "Q": 12, "R": 18, "S": 14, "T": 18, "U": 14, "V": 18, "W": 18, "X": 30, "Y": 30}
+              "Q": 12, "R": 18, "S": 14, "T": 18, "U": 14, "V": 18, "W": 18, "X": 30, "Y": 30,
+              "Z": 12, "AA": 32}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
 

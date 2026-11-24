@@ -25,6 +25,7 @@ from flask import (
 )
 
 import engine
+import cvss as cvss_mod
 from parsers import detect_and_parse
 import scanner as scanner_mod
 import auth
@@ -166,6 +167,7 @@ def init_db():
             actual_fix_date TEXT, exception_requested TEXT DEFAULT 'No',
             exception_approved_by TEXT, revised_target_fix_date TEXT,
             asset_owners_comment TEXT, comment TEXT, source_tool TEXT,
+            cvss_score REAL, cvss_vector TEXT,
             created_at TEXT, updated_at TEXT,
             FOREIGN KEY(scan_id) REFERENCES scans(id)
         );
@@ -274,6 +276,10 @@ def init_db():
         "delivery_error": "delivery_error TEXT", "grp": "grp TEXT",
     })
     _ensure_cols("phish_send_job", {"groups": "groups TEXT"})
+    _ensure_cols("findings", {
+        "cvss_score": "cvss_score REAL",
+        "cvss_vector": "cvss_vector TEXT",
+    })
     # seed a few default owners if empty
     cur = db.execute("SELECT COUNT(*) FROM asset_owners")
     if cur.fetchone()[0] == 0:
@@ -349,6 +355,12 @@ def enrich(row):
     r["detection_date_disp"] = fmt_display(parse_date(r.get("detection_date")))
     r["actual_fix_date_disp"] = fmt_display(parse_date(r.get("actual_fix_date")))
     r["revised_target_fix_date_disp"] = fmt_display(parse_date(r.get("revised_target_fix_date")))
+    # CVSS display helpers (score may be absent for non-CVE findings)
+    score = cvss_mod.clamp_score(r.get("cvss_score"))
+    r["cvss_score"] = score
+    r["cvss_score_disp"] = ("%.1f" % score) if score is not None else ""
+    r["cvss_severity"] = cvss_mod.severity_band(score)
+    r["cvss_breakdown"] = cvss_mod.parse_vector(r.get("cvss_vector") or "")
     return r
 
 
@@ -879,6 +891,54 @@ def finding_delete(fid):
     if row:
         auth.log_activity(db, me["id"], None, "deleted", f'{row["ip_hostname"]}: {row["vulnerability"][:80]}')
     flash("Finding deleted.")
+    return redirect(url_for("index"))
+
+
+@app.route("/findings/recheck-exploitation", methods=["POST"])
+@auth.role_required("admin", "editor")
+def findings_recheck_kev():
+    """Re-cross-reference every finding's CVE against the current threat feed.
+
+    Run this after refreshing feeds: a CVE that has since been added to the KEV
+    catalogue gets flagged as actively exploited, which escalates its actual
+    risk through the existing risk matrix. Existing findings aren't downgraded
+    here — this only promotes newly-exploited ones."""
+    db = get_db()
+    me = auth.current_user(db)
+    feed_count = db.execute("SELECT COUNT(*) FROM threat_feed").fetchone()[0]
+    if not feed_count:
+        flash("No threat feed is loaded yet, so there's nothing to cross-reference. "
+              "Update your threat sources first, then re-check.")
+        return redirect(url_for("index"))
+    rows = db.execute(
+        "SELECT id, cve, definition, exploit_available FROM findings "
+        "WHERE cve IS NOT NULL AND cve != ''"
+    ).fetchall()
+    now = datetime.now().isoformat(timespec="seconds")
+    promoted = annotated = 0
+    for r in rows:
+        d = {"cve": r["cve"], "definition": r["definition"] or "",
+             "exploit_available": r["exploit_available"] or ""}
+        before_exploit, before_def = d["exploit_available"], d["definition"]
+        _kev_crossref(db, d)
+        if d["exploit_available"] == before_exploit and d["definition"] == before_def:
+            continue
+        if d["exploit_available"] == "Yes" and before_exploit != "Yes":
+            promoted += 1
+        else:
+            annotated += 1
+        db.execute(
+            "UPDATE findings SET exploit_available=?, definition=?, updated_at=? WHERE id=?",
+            (d["exploit_available"], d["definition"], now, r["id"]),
+        )
+    db.commit()
+    auth.log_activity(db, me["id"], None, "rechecked exploitation",
+                      f"{promoted} promoted to actively-exploited, {annotated} annotated")
+    if promoted or annotated:
+        flash(f"Exploitation re-check complete: {promoted} finding(s) flagged as actively "
+              f"exploited (risk escalated), {annotated} annotated from the feed.")
+    else:
+        flash("Exploitation re-check complete: no findings matched the current threat feed.")
     return redirect(url_for("index"))
 
 
@@ -2251,14 +2311,62 @@ def _form_to_dict(form):
     # not), so editing a finding never clobbers its real origin (Nessus, etc.).
     if form.get("source_tool"):
         d["source_tool"] = form.get("source_tool")
+    # CVSS: capture only when the field is present on the form, so unrelated
+    # posts never blank a stored score. Normalised so score and vector are valid.
+    if "cvss_score" in form or "cvss_vector" in form:
+        score, vector, _band = cvss_mod.normalize(
+            form.get("cvss_score", "").strip(), form.get("cvss_vector", "").strip())
+        d["cvss_score"] = score
+        d["cvss_vector"] = vector
     return d
+
+
+_CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
+_KEV_NOTE = ("Actively exploited in the wild — this CVE is listed in the loaded threat feed's "
+             "Known Exploited Vulnerabilities (KEV) catalogue. Treat as an urgent priority.")
+_FEED_NOTE = "This CVE appears in the loaded threat feed."
+
+
+def _kev_crossref(db, d):
+    """Cross-reference a finding's CVE(s) against the threat_feed table.
+
+    If any referenced CVE is flagged KEV (actively exploited), set
+    exploit_available='Yes' so the risk engine auto-escalates the actual risk,
+    and annotate the finding. If a CVE is merely present in the feed, add a
+    lighter note. Mutates d in place. No-op when the feed is empty or the
+    finding carries no CVE id (so it never invents exploitation).
+    """
+    ids = [m.upper() for m in _CVE_RE.findall(d.get("cve") or "")]
+    if not ids:
+        return
+    seen = set()
+    uniq = [i for i in ids if not (i in seen or seen.add(i))]
+    rows = db.execute(
+        "SELECT cve, kev FROM threat_feed WHERE UPPER(cve) IN (%s)"
+        % ",".join("?" for _ in uniq),
+        uniq,
+    ).fetchall()
+    if not rows:
+        return
+    kev = any(r["kev"] for r in rows)
+    note = _KEV_NOTE if kev else _FEED_NOTE
+    if kev:
+        d["exploit_available"] = "Yes"
+    existing = (d.get("definition") or "").strip()
+    if note not in existing:
+        d["definition"] = (existing + " " + note).strip()
 
 
 def _insert_finding(d, scan_id=None):
     db = get_db()
     now = datetime.now().isoformat(timespec="seconds")
-    cols = INPUT_COLUMNS + ["scan_id", "created_at", "updated_at"]
-    vals = [d.get(c, "") for c in INPUT_COLUMNS] + [scan_id, now, now]
+    # Normalise any CVSS the finding carries, then cross-reference exploitation
+    # against the threat feed before storing (so stored exploit_available feeds
+    # the risk engine on every read).
+    score, vector, _band = cvss_mod.normalize(d.get("cvss_score"), d.get("cvss_vector") or "")
+    _kev_crossref(db, d)
+    cols = INPUT_COLUMNS + ["cvss_score", "cvss_vector", "scan_id", "created_at", "updated_at"]
+    vals = [d.get(c, "") for c in INPUT_COLUMNS] + [score, vector, scan_id, now, now]
     placeholders = ", ".join("?" for _ in cols)
     db.execute(f"INSERT INTO findings ({', '.join(cols)}) VALUES ({placeholders})", vals)
     db.commit()
