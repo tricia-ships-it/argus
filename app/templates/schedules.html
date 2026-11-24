@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Scheduled scans · Argus{% endblock %}
+{% block body %}
+
+<div class="page-head">
+  <div>
+    <h1>Scheduled scans</h1>
+    <p class="lede">Recurring, unattended scans of your targets. Results are added to the register automatically as a new scan, so you can track drift over time on the Compare page.</p>
+  </div>
+</div>
+
+<div class="note" style="margin-bottom:14px">
+  Scheduled scans are <b>network-only</b> by design: credentialed audits need credentials, which Argus never stores, so run those interactively from <a href="{{ url_for('scan_page') }}">Run scan</a>. Protected (do-not-scan) assets are always skipped.
+</div>
+
+<div class="panel">
+  <h2>New schedule</h2>
+  <form method="post" action="{{ url_for('schedule_add') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="field"><label>Name</label><input name="name" required placeholder="e.g. Weekly DMZ sweep"></div>
+      <div class="field">
+        <label>Runs</label>
+        <select name="interval_hours">
+          {% for hrs, label in intervals %}<option value="{{ hrs }}" {{ 'selected' if hrs==168 }}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field full">
+        <label>Targets</label>
+        <textarea name="targets" required placeholder="10.100.72.0/24&#10;10.100.80.1-50"></textarea>
+        <span class="hint">IPs, ranges or CIDR — one per line or comma-separated.</span>
+      </div>
+      <div class="field">
+        <label>Scan profile</label>
+        <select name="profile">
+          {% for key, p in scan_profiles.items() %}<option value="{{ key }}" {{ 'selected' if key=='standard' }}>{{ p.label }}</option>{% endfor %}
+          <option value="custom">Custom — use ports below</option>
+        </select>
+      </div>
+      <div class="field"><label>Ports <span class="muted">(custom only)</span></label><input name="ports" placeholder="22,80,443"></div>
+      <div class="field">
+        <label>Default classification</label>
+        <select name="default_classification">
+          <option value="">— set per asset —</option>
+          {% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Default owner</label>
+        <select name="default_owner">
+          <option value="">— unassigned —</option>
+          {% for o in owners %}<option value="{{ o }}">{{ o }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field full">
+        <label>Options</label>
+        <div class="checks">
+          <label class="check"><input type="checkbox" name="do_tls" checked> TLS / SSL checks</label>
+          <label class="check"><input type="checkbox" name="do_http" checked> HTTP checks</label>
+          <label class="check"><input type="checkbox" name="assume_up"> Skip liveness probe</label>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions"><button class="btn primary" type="submit">Create schedule</button></div>
+  </form>
+</div>
+
+{% if schedules %}
+<div class="table-scroll"><table class="grid">
+  <thead><tr>
+    <th>Name</th><th>Targets</th><th>Profile</th><th>Runs</th><th>Next run</th><th>Last result</th><th>Status</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for s in schedules %}
+  <tr{% if not s.enabled %} class="row-noscan"{% endif %}>
+    <td><b>{{ s.name }}</b></td>
+    <td class="mono" style="font-size:11.5px">{{ s.targets|truncate(50) }}</td>
+    <td class="nowrap">{{ s.profile }}</td>
+    <td class="nowrap">every {{ s.interval_hours }}h</td>
+    <td class="mono nowrap">{{ (s.next_run or '—')[:16].replace('T',' ') }}</td>
+    <td style="font-size:11.5px">{{ s.last_result or '— not run yet —' }}</td>
+    <td class="nowrap">{% if s.enabled %}<span class="pill-ok">Enabled</span>{% else %}<span class="pill-warn">Paused</span>{% endif %}</td>
+    <td class="nowrap">
+      <form method="post" action="{{ url_for('schedule_run_now', sid=s.id) }}" style="display:inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="btn sm" type="submit" title="Run this schedule now">Run now</button></form>
+      <form method="post" action="{{ url_for('schedule_toggle', sid=s.id) }}" style="display:inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="btn sm ghost" type="submit">{{ 'Pause' if s.enabled else 'Resume' }}</button></form>
+      <form method="post" action="{{ url_for('schedule_delete', sid=s.id) }}" style="display:inline" onsubmit="return confirm('Delete this schedule?')"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="btn sm ghost" type="submit" title="Delete">✕</button></form>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}
+<div class="empty"><h3>No schedules yet</h3><p>Create one above to run recurring scans without having to remember.</p></div>
+{% endif %}
+
+{% endblock %}

@@ -41,6 +41,7 @@ import zoho
 import csv as _csv
 import json as _json
 import threading
+import time
 import uuid
 from datetime import timedelta
 
@@ -206,6 +207,16 @@ def init_db():
         CREATE TABLE IF NOT EXISTS threat_source_health (
             source_id TEXT PRIMARY KEY, status TEXT, detail TEXT,
             records INTEGER DEFAULT 0, checked_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS scan_schedule (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT, targets TEXT, profile TEXT DEFAULT 'standard', ports TEXT,
+            interval_hours INTEGER DEFAULT 168,
+            do_tls INTEGER DEFAULT 1, do_http INTEGER DEFAULT 1, assume_up INTEGER DEFAULT 0,
+            default_owner TEXT, default_classification TEXT,
+            enabled INTEGER DEFAULT 1,
+            next_run TEXT, last_run TEXT, last_result TEXT,
+            created_by TEXT, created_at TEXT
         );
         CREATE TABLE IF NOT EXISTS phish_campaign (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2358,8 +2369,9 @@ def _kev_crossref(db, d):
         d["definition"] = (existing + " " + note).strip()
 
 
-def _insert_finding(d, scan_id=None):
-    db = get_db()
+def _insert_finding_db(db, d, scan_id=None):
+    """Insert one finding using an explicit db connection. Shared by the request
+    path and the background scan scheduler (which has no request context)."""
     now = datetime.now().isoformat(timespec="seconds")
     # Normalise any CVSS the finding carries, then cross-reference exploitation
     # against the threat feed before storing (so stored exploit_available feeds
@@ -2371,6 +2383,10 @@ def _insert_finding(d, scan_id=None):
     placeholders = ", ".join("?" for _ in cols)
     db.execute(f"INSERT INTO findings ({', '.join(cols)}) VALUES ({placeholders})", vals)
     db.commit()
+
+
+def _insert_finding(d, scan_id=None):
+    _insert_finding_db(get_db(), d, scan_id)
 
 
 def _update_finding(fid, d):
@@ -2687,6 +2703,264 @@ def scan_commit(job_id):
 
 
 # ---------------------------------------------------------------------------
+# Scheduled scans — recurring, unattended, NETWORK-ONLY.
+#
+# Scheduled runs are deliberately network-only: credentialed audits need
+# credentials, which Argus never stores, so they are run interactively only.
+# A single daemon thread wakes once a minute, runs any due schedule and
+# auto-commits its findings as a new scan. It uses its own sqlite connection
+# (no request/g context) and the shared _insert_finding_db core.
+# ---------------------------------------------------------------------------
+INTERVAL_PRESETS = [
+    (6, "Every 6 hours"), (12, "Every 12 hours"), (24, "Daily"),
+    (72, "Every 3 days"), (168, "Weekly"), (336, "Every 2 weeks"), (720, "Monthly"),
+]
+
+
+def _schedule_ports(s):
+    prof = (s["profile"] or "standard").strip().lower()
+    raw = (s["ports"] or "").strip()
+    if prof == "custom" and raw:
+        try:
+            return [int(p) for p in raw.replace(",", " ").split()]
+        except ValueError:
+            return None
+    if prof != "custom":
+        return scanner_mod.profile_ports(prof)
+    return None
+
+
+def _run_one_schedule(db, s):
+    """Execute one schedule row against its targets and auto-commit findings.
+    Returns a short human-readable result string."""
+    blocklist = [r["ip"] for r in db.execute(
+        "SELECT ip FROM assets WHERE scan_eligible=0 AND ip IS NOT NULL AND ip != ''")]
+    ips, findings = scanner_mod.scan_targets(
+        s["targets"], ports=_schedule_ports(s),
+        do_tls=bool(s["do_tls"]), do_http=bool(s["do_http"]),
+        assume_up=bool(s["assume_up"]), blocklist=blocklist,
+    )
+    today = date.today().isoformat()
+    db.execute(
+        "INSERT INTO scans(name, scan_date, source_tool, imported_at) VALUES (?,?,?,?)",
+        (f"Scheduled: {s['name']}", today, "Built-in scanner (scheduled)",
+         datetime.now().isoformat(timespec="seconds")),
+    )
+    scan_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    for fx in findings:
+        rec = {c: "" for c in INPUT_COLUMNS}
+        rec.update({
+            "ip_hostname": fx.get("ip_hostname", ""), "device": fx.get("device", ""),
+            "asset_classification": s["default_classification"] or "",
+            "vulnerability": fx.get("vulnerability", ""), "synopsis": fx.get("synopsis", ""),
+            "definition": fx.get("definition", ""), "cve": fx.get("cve", ""),
+            "reported_risk": fx.get("reported_risk", ""),
+            "exploit_available": fx.get("exploit_available", "Unknown"),
+            "exploit_reference": fx.get("exploit_reference", ""),
+            "solution": fx.get("solution", ""),
+            "asset_owner": s["default_owner"] or "", "detection_date": today,
+            "remediation_status": "Pending", "exception_requested": "No",
+            "source_tool": fx.get("source_tool", "Built-in scanner (scheduled)"),
+            "cvss_score": fx.get("cvss_score"), "cvss_vector": fx.get("cvss_vector", ""),
+        })
+        _insert_finding_db(db, rec, scan_id=scan_id)
+    return f"{len(ips)} host(s) probed, {len(findings)} finding(s) added"
+
+
+def _scheduler_tick():
+    """Run all schedules that are due. Separate connection; safe to call from a
+    thread. Each schedule's failure is isolated so one bad row can't stall others."""
+    db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
+    try:
+        now = datetime.now()
+        now_iso = now.isoformat(timespec="seconds")
+        due = db.execute(
+            "SELECT * FROM scan_schedule WHERE enabled=1 AND (next_run IS NULL OR next_run<=?)",
+            (now_iso,)).fetchall()
+        for s in due:
+            try:
+                res = _run_one_schedule(db, s)
+                stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+                result = f"{stamp}: {res}"
+            except Exception as e:
+                stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+                result = f"{stamp}: error — {e}"
+            hrs = max(1, int(s["interval_hours"] or 168))
+            nxt = (datetime.now() + timedelta(hours=hrs)).isoformat(timespec="seconds")
+            db.execute(
+                "UPDATE scan_schedule SET last_run=?, next_run=?, last_result=? WHERE id=?",
+                (now_iso, nxt, result, s["id"]))
+            db.commit()
+    finally:
+        db.close()
+
+
+_SCHEDULER_STARTED = False
+_SCHEDULER_LOCK = threading.Lock()
+
+
+def _scheduler_loop():
+    while True:
+        try:
+            _scheduler_tick()
+        except Exception:
+            pass
+        time.sleep(60)
+
+
+def _ensure_scan_scheduler():
+    """Start the scan scheduler thread once (idempotent). Single-process servers
+    only, like the send worker."""
+    global _SCHEDULER_STARTED
+    with _SCHEDULER_LOCK:
+        if _SCHEDULER_STARTED:
+            return
+        _SCHEDULER_STARTED = True
+        threading.Thread(target=_scheduler_loop, daemon=True).start()
+
+
+def _next_run_for(hours):
+    return (datetime.now() + timedelta(hours=max(1, int(hours or 168)))).isoformat(timespec="seconds")
+
+
+@app.route("/schedules")
+@auth.role_required("admin", "editor")
+def schedules():
+    db = get_db()
+    rows = [dict(r) for r in db.execute("SELECT * FROM scan_schedule ORDER BY name")]
+    eligible = db.execute(
+        "SELECT COUNT(*) n FROM assets WHERE scan_eligible=1 AND ip IS NOT NULL AND ip != ''"
+    ).fetchone()["n"]
+    return render_template(
+        "schedules.html", schedules=rows, owners=owner_list(),
+        severities=engine.SEVERITIES, scan_profiles=scanner_mod.SCAN_PROFILES,
+        intervals=INTERVAL_PRESETS, eligible_count=eligible,
+    )
+
+
+@app.route("/schedules/add", methods=["POST"])
+@auth.role_required("admin", "editor")
+def schedule_add():
+    db = get_db()
+    me = auth.current_user(db)
+    name = request.form.get("name", "").strip()
+    targets = request.form.get("targets", "").strip()
+    if not name or not targets:
+        flash("A schedule needs a name and at least one target.")
+        return redirect(url_for("schedules"))
+    hrs = _safe_port(request.form.get("interval_hours", "168"), default=168)
+    db.execute(
+        "INSERT INTO scan_schedule(name, targets, profile, ports, interval_hours, "
+        "do_tls, do_http, assume_up, default_owner, default_classification, enabled, "
+        "next_run, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,1,?,?,?)",
+        (name, targets, request.form.get("profile", "standard").strip().lower(),
+         request.form.get("ports", "").strip(), hrs,
+         1 if request.form.get("do_tls", "on") == "on" else 0,
+         1 if request.form.get("do_http", "on") == "on" else 0,
+         1 if request.form.get("assume_up") == "on" else 0,
+         request.form.get("default_owner", "").strip(),
+         request.form.get("default_classification", "").strip(),
+         _next_run_for(hrs), me["username"], datetime.now().isoformat(timespec="seconds")),
+    )
+    db.commit()
+    _ensure_scan_scheduler()
+    flash(f"Schedule '{name}' created. First run is due {_next_run_for(hrs)[:16].replace('T',' ')}.")
+    return redirect(url_for("schedules"))
+
+
+@app.route("/schedules/<int:sid>/toggle", methods=["POST"])
+@auth.role_required("admin", "editor")
+def schedule_toggle(sid):
+    db = get_db()
+    row = db.execute("SELECT enabled FROM scan_schedule WHERE id=?", (sid,)).fetchone()
+    if row:
+        db.execute("UPDATE scan_schedule SET enabled=? WHERE id=?",
+                   (0 if row["enabled"] else 1, sid))
+        db.commit()
+    return redirect(url_for("schedules"))
+
+
+@app.route("/schedules/<int:sid>/run", methods=["POST"])
+@auth.role_required("admin", "editor")
+def schedule_run_now(sid):
+    db = get_db()
+    s = db.execute("SELECT * FROM scan_schedule WHERE id=?", (sid,)).fetchone()
+    if not s:
+        abort(404)
+
+    def runner():
+        rdb = sqlite3.connect(DB_PATH)
+        rdb.row_factory = sqlite3.Row
+        try:
+            try:
+                res = _run_one_schedule(rdb, s)
+                result = f"{datetime.now().strftime('%Y-%m-%d %H:%M')}: {res} (manual run)"
+            except Exception as e:
+                result = f"{datetime.now().strftime('%Y-%m-%d %H:%M')}: error — {e}"
+            rdb.execute("UPDATE scan_schedule SET last_run=?, last_result=? WHERE id=?",
+                        (datetime.now().isoformat(timespec="seconds"), result, sid))
+            rdb.commit()
+        finally:
+            rdb.close()
+
+    threading.Thread(target=runner, daemon=True).start()
+    flash("Running that schedule now — its findings will appear in the register shortly.")
+    return redirect(url_for("schedules"))
+
+
+@app.route("/schedules/<int:sid>/delete", methods=["POST"])
+@auth.role_required("admin", "editor")
+def schedule_delete(sid):
+    db = get_db()
+    db.execute("DELETE FROM scan_schedule WHERE id=?", (sid,))
+    db.commit()
+    flash("Schedule removed.")
+    return redirect(url_for("schedules"))
+
+
+# ---------------------------------------------------------------------------
+# Remediation report — group open findings by the fix that resolves them.
+# ---------------------------------------------------------------------------
+@app.route("/remediation")
+@auth.login_required
+def remediation():
+    db = get_db()
+    rows = [enrich(r) for r in db.execute("SELECT * FROM findings")]
+    open_rows = [r for r in rows
+                 if r.get("remediation_status") not in engine.CLOSING_STATUSES]
+    groups = {}
+    for r in open_rows:
+        key = (r.get("solution") or "").strip() or "(no remediation step recorded)"
+        g = groups.setdefault(key, {
+            "solution": key, "count": 0, "hosts": set(), "cves": set(),
+            "vulns": set(), "max_rank": -1, "max_sev": ""})
+        g["count"] += 1
+        if r.get("ip_hostname"):
+            g["hosts"].add(r["ip_hostname"])
+        for c in re.findall(r"CVE-\d{4}-\d{4,7}", r.get("cve") or "", re.I):
+            g["cves"].add(c.upper())
+        if r.get("vulnerability"):
+            g["vulns"].add(r["vulnerability"])
+        rank = compliance.SEV_RANK.get(r.get("actual_risk_classification"), 0)
+        if rank > g["max_rank"]:
+            g["max_rank"] = rank
+            g["max_sev"] = r.get("actual_risk_classification") or ""
+    group_list = []
+    for g in groups.values():
+        g["host_count"] = len(g["hosts"])
+        g["hosts"] = sorted(g["hosts"])
+        g["cves"] = sorted(g["cves"])
+        g["vulns"] = sorted(g["vulns"])
+        group_list.append(g)
+    group_list.sort(key=lambda g: (-g["max_rank"], -g["count"]))
+    return render_template(
+        "remediation.html", groups=group_list,
+        total_open=len(open_rows), action_count=len(group_list),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Routes: asset owners management
 # ---------------------------------------------------------------------------
 @app.route("/owners", methods=["GET", "POST"])
@@ -2759,6 +3033,7 @@ def export_pdf():
 if __name__ == "__main__":
     admin_pw = init_db()
     _ensure_send_worker()   # resume scheduled / interrupted send jobs
+    _ensure_scan_scheduler()  # recurring network-only scans
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=5000)

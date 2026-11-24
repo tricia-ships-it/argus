@@ -1012,3 +1012,16 @@ tr.rowlink:hover td { background: var(--panel-3); }
   margin: 0 0 16px; border: 1px solid var(--line-soft); }
 .synced-note.ok { color: var(--low); background: var(--low-bg); border-color: color-mix(in srgb, var(--low) 30%, transparent); }
 .synced-note.err { color: var(--high); background: color-mix(in srgb, var(--high) 10%, transparent); border-color: color-mix(in srgb, var(--high) 35%, transparent); }
+
+/* Remediation plan */
+.remediation-list { display: flex; flex-direction: column; gap: 12px; }
+.rem-item { margin: 0; }
+.rem-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.rem-impact { font-size: 14px; color: var(--ink); }
+.rem-solution { margin: 0 0 10px; color: var(--ink); line-height: 1.5; }
+.rem-meta { display: flex; flex-wrap: wrap; gap: 10px 22px; font-size: 12.5px; color: var(--ink-dim); align-items: flex-start; }
+.rem-meta details { max-width: 100%; }
+.rem-meta summary { cursor: pointer; color: var(--accent, #6ea8fe); }
+.rem-hosts { margin-top: 6px; word-break: break-all; }
+.rem-vulns { margin: 6px 0 0; padding-left: 18px; }
+.rem-vulns li { margin: 2px 0; }

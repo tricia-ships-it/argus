@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Remediation plan · Argus{% endblock %}
+{% block body %}
+
+<div class="page-head">
+  <div>
+    <h1>Remediation plan</h1>
+    <p class="lede">Open findings grouped by the fix that resolves them, so you can act by effort, not by ticket. Each action is ordered by the highest risk it clears and how many findings it closes.</p>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="n">{{ total_open }}</div><div class="l">Open findings</div></div>
+  <div class="stat"><div class="n">{{ action_count }}</div><div class="l">Distinct fixes</div></div>
+</div>
+
+{% if not groups %}
+<div class="empty">
+  <h3>Nothing open to remediate</h3>
+  <p>Every finding is fixed, accepted or not applicable. Run a scan or import results to populate the plan.</p>
+</div>
+{% else %}
+<div class="remediation-list">
+  {% for g in groups %}
+  <div class="panel rem-item">
+    <div class="rem-head">
+      <span class="risk {{ g.max_sev }}">{{ g.max_sev or '—' }}</span>
+      <div class="rem-impact">
+        Fixing this clears <b>{{ g.count }}</b> finding{{ '' if g.count == 1 else 's' }}
+        across <b>{{ g.host_count }}</b> host{{ '' if g.host_count == 1 else 's' }}.
+      </div>
+    </div>
+    <p class="rem-solution">{{ g.solution }}</p>
+    <div class="rem-meta">
+      {% if g.cves %}<div><span class="muted">CVEs:</span> <span class="mono">{{ g.cves|join(', ') }}</span></div>{% endif %}
+      <details>
+        <summary>{{ g.host_count }} affected host{{ '' if g.host_count == 1 else 's' }}</summary>
+        <div class="rem-hosts mono">{{ g.hosts|join(', ') }}</div>
+      </details>
+      <details>
+        <summary>{{ g.vulns|length }} distinct finding{{ '' if g.vulns|length == 1 else 's' }}</summary>
+        <ul class="rem-vulns">{% for v in g.vulns %}<li>{{ v }}</li>{% endfor %}</ul>
+      </details>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

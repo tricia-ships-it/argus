@@ -36,11 +36,13 @@
       <a href="{{ url_for('assets') }}" class="{{ 'active' if ep == 'assets' }}">Hosts at risk</a>
       <a href="{{ url_for('scan_diff') }}" class="{{ 'active' if ep == 'scan_diff' }}">Compare</a>
       <a href="{{ url_for('compliance_view') }}" class="{{ 'active' if ep == 'compliance_view' }}">Compliance</a>
+      <a href="{{ url_for('remediation') }}" class="{{ 'active' if ep == 'remediation' }}">Remediation</a>
       <a href="{{ url_for('threatintel_view') }}" class="{{ 'active' if ep == 'threatintel_view' }}">Threats</a>
       <a href="{{ url_for('phishing_view') }}" class="{{ 'active' if ep in ['phishing_view','phishing_new','phishing_campaign'] }}">Phishing</a>
       <a href="{{ url_for('activity_feed') }}" class="{{ 'active' if ep == 'activity_feed' }}">Activity</a>
       {% if can_import_or_scan %}
       <a href="{{ url_for('import_scan') }}" class="{{ 'active' if ep == 'import_scan' }}">Import</a>
+      <a href="{{ url_for('schedules') }}" class="{{ 'active' if ep and ep.startswith('schedule') }}">Schedules</a>
       <a href="{{ url_for('owners') }}" class="{{ 'active' if ep == 'owners' }}">Owners</a>
       {% endif %}
       {% if is_admin %}<a href="{{ url_for('users') }}" class="{{ 'active' if ep == 'users' }}">Admin</a>{% endif %}

@@ -8,7 +8,7 @@ admin password on first run, then exposes `app` as the WSGI callable.
     Windows:  waitress-serve --listen=0.0.0.0:8080 wsgi:app
     Linux:    gunicorn --bind 0.0.0.0:8080 wsgi:app
 """
-from app import app, init_db, _ensure_send_worker
+from app import app, init_db, _ensure_send_worker, _ensure_scan_scheduler
 
 # Idempotent: creates tables if missing and the admin account only on first run.
 _admin_pw = init_db()
@@ -16,6 +16,8 @@ _admin_pw = init_db()
 # NOTE: single-process servers only (waitress, gunicorn -w 1). For multiple
 # web workers, see docs/phishing-delivery.md (one worker per process).
 _ensure_send_worker()
+# Start the recurring scan scheduler (network-only scans). Single-process only.
+_ensure_scan_scheduler()
 if _admin_pw:
     print("\n" + "=" * 64)
     print("  FIRST RUN — an administrator account has been created.")
