@@ -34,9 +34,19 @@
         <span class="hint">One or many. Accepts single IPs, 10.0.0.0/24 CIDR, 10.0.0.1-20 ranges, or hostnames — separated by spaces, commas or new lines.</span>
       </div>
       <div class="field full">
-        <label>Ports</label>
-        <input name="ports" value="{{ default_ports }}">
-        <span class="hint">Comma-separated. Defaults to common infrastructure services. Clear and type your own to narrow or widen.</span>
+        <label>Scan profile</label>
+        <select name="profile" id="profile">
+          {% for key, p in scan_profiles.items() %}
+          <option value="{{ key }}" {{ 'selected' if key=='standard' }}>{{ p.label }}</option>
+          {% endfor %}
+          <option value="custom">Custom — type exact ports below</option>
+        </select>
+        <span class="hint" id="profilehint">{{ scan_profiles['standard'].desc }}</span>
+      </div>
+      <div class="field full">
+        <label>Ports <span class="muted">(optional override)</span></label>
+        <input name="ports" id="ports" value="" placeholder="{{ default_ports }}">
+        <span class="hint">Leave blank to use the profile above. Type a comma-separated list to refine it, or choose <b>Custom</b> to scan exactly these ports.</span>
       </div>
     </div>
   </div>
@@ -92,6 +102,23 @@
 {% endblock %}
 {% block scripts %}
 <script>
+(function () {
+  var sel = document.getElementById('profile');
+  var hint = document.getElementById('profilehint');
+  var ports = document.getElementById('ports');
+  if (sel) {
+    var descs = {
+      {% for key, p in scan_profiles.items() %}"{{ key }}": {{ p.desc|tojson }},{% endfor %}
+      "custom": "Scan exactly the ports you type below — nothing else."
+    };
+    sel.addEventListener('change', function () {
+      if (hint) hint.textContent = descs[sel.value] || '';
+      if (sel.value === 'custom' && ports && !ports.value) {
+        ports.value = "{{ default_ports }}";
+      }
+    });
+  }
+})();
 (function () {
   var all = document.getElementById('pickall');
   if (!all) return;

@@ -2433,6 +2433,8 @@ def import_scan():
                     "remediation_status": "Pending",
                     "exception_requested": "No",
                     "source_tool": fx.get("source_tool", label),
+                    "cvss_score": fx.get("cvss_score"),
+                    "cvss_vector": fx.get("cvss_vector", ""),
                 })
                 _insert_finding(rec, scan_id=scan_id)
                 total += 1
@@ -2474,6 +2476,7 @@ def scan_page():
         today=date.today().isoformat(), eligible=[dict(r) for r in eligible],
         protected_count=protected,
         default_ports=",".join(str(p) for p in scanner_mod.DEFAULT_PORTS),
+        scan_profiles=scanner_mod.SCAN_PROFILES,
     )
 
 
@@ -2491,13 +2494,23 @@ def scan_start():
     if not targets:
         flash("Tick at least one asset to scan, or type a target IP, range or CIDR.")
         return redirect(url_for("scan_page"))
+    # Port scope: a named profile, or a custom typed list that overrides it.
+    profile = request.form.get("profile", "standard").strip().lower()
     ports_raw = request.form.get("ports", "").strip()
     ports = None
-    if ports_raw:
+    if profile == "custom" and ports_raw:
         try:
             ports = [int(p) for p in ports_raw.replace(",", " ").split()]
         except ValueError:
             ports = None
+    elif profile != "custom":
+        ports = scanner_mod.profile_ports(profile)  # None -> scanner default
+        # a custom list typed alongside a profile still refines it, if valid
+        if ports_raw:
+            try:
+                ports = [int(p) for p in ports_raw.replace(",", " ").split()]
+            except ValueError:
+                pass
     # Governance: assets the register marks do-not-actively-scan (OT/protected)
     db = get_db()
     blocklist = [r["ip"] for r in db.execute(
@@ -2604,6 +2617,8 @@ def scan_commit(job_id):
             "remediation_status": "Pending",
             "exception_requested": "No",
             "source_tool": fx.get("source_tool", "Built-in scanner"),
+            "cvss_score": fx.get("cvss_score"),
+            "cvss_vector": fx.get("cvss_vector", ""),
         })
         _insert_finding(rec, scan_id=scan_id)
     job["committed"] = True

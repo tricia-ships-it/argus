@@ -618,6 +618,185 @@ def exposed_service_finding(ip, port):
         SRC_SVC)
 
 
+# ===========================================================================
+# Exposed sensitive files/endpoints — benign GETs for well-known leak paths
+# ===========================================================================
+# Each entry: path -> (label, risk, a signature that must appear in the body so
+# we don't flag an ordinary 200 page). Only GET is used; nothing is written, and
+# only the presence (not the contents) of each file is reported.
+_SENSITIVE_PATHS = {
+    "/.git/HEAD": ("Exposed .git repository", "High", "ref:"),
+    "/.git/config": ("Exposed .git repository", "High", "[core]"),
+    "/.env": ("Exposed .env configuration file", "High", "="),
+    "/server-status": ("Apache mod_status exposed", "Medium", "Apache Server Status"),
+    "/.svn/entries": ("Exposed .svn metadata", "Medium", ""),
+    "/.DS_Store": ("Exposed .DS_Store file", "Low", "Bud1"),
+    "/phpinfo.php": ("Exposed phpinfo() output", "Medium", "phpinfo()"),
+    "/.htpasswd": ("Exposed .htpasswd file", "High", ":"),
+}
+
+
+def check_exposed_paths(ip, port, use_tls, timeout=3.0):
+    """GET a small set of well-known sensitive paths and report any that are
+    served. Read-only: a single GET per path, contents are never stored, only
+    the fact of exposure. Conservative signatures avoid flagging normal pages."""
+    import http.client
+    findings = []
+
+    def _get(path):
+        try:
+            if use_tls:
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                conn = http.client.HTTPSConnection(ip, port, timeout=timeout, context=ctx)
+            else:
+                conn = http.client.HTTPConnection(ip, port, timeout=timeout)
+            conn.request("GET", path, headers={"User-Agent": "Argus-assessment"})
+            r = conn.getresponse()
+            body = r.read(4096).decode("latin-1", "ignore")
+            conn.close()
+            return r.status, body
+        except Exception:
+            return None, ""
+
+    for path, (label, risk, sig) in _SENSITIVE_PATHS.items():
+        status, body = _get(path)
+        if status != 200:
+            continue
+        # must match the signature, and must not look like a generic HTML page
+        # (many servers answer 200 with a styled 404/app shell)
+        if sig and sig not in body:
+            continue
+        low = body.lower()
+        if "<html" in low or "<!doctype html" in low:
+            # .env/.htpasswd/.git should be plaintext, never an HTML page
+            if path in ("/.env", "/.htpasswd", "/.git/HEAD", "/.git/config"):
+                continue
+        findings.append(_finding(
+            ip, port, label,
+            f"{ip}:{port} serves {path}, which should not be web-accessible.",
+            f"A request for {path} returned HTTP 200 with the expected signature, meaning the file "
+            "or endpoint is exposed to anyone who can reach this web server. Such files commonly leak "
+            "source code, credentials, configuration or internal detail. Detected with a single GET; "
+            "the contents were not retrieved or stored.",
+            risk,
+            f"Block access to {path} at the web server or remove it from the web root. For VCS "
+            "metadata, ensure .git/.svn directories are never deployed to production.",
+            SRC_HTTP))
+    return findings
+
+
+# ===========================================================================
+# Cleartext mail services — STARTTLS availability via benign protocol chatter
+# ===========================================================================
+def _read_line(sock, limit=2048):
+    data = b""
+    try:
+        while b"\n" not in data and len(data) < limit:
+            chunk = sock.recv(256)
+            if not chunk:
+                break
+            data += chunk
+    except Exception:
+        pass
+    return data.decode("latin-1", "ignore")
+
+
+def check_mail_cleartext(ip, port, timeout=4.0):
+    """For SMTP/POP3/IMAP, negotiate only far enough to see whether STARTTLS is
+    offered. No authentication, no mail is sent — this is ordinary capability
+    discovery (EHLO / CAPA / CAPABILITY), the same a mail client performs."""
+    findings = []
+    svc = {25: "SMTP", 587: "SMTP submission", 110: "POP3", 143: "IMAP"}.get(port)
+    if not svc:
+        return findings
+    try:
+        with socket.create_connection((ip, port), timeout=timeout) as s:
+            s.settimeout(timeout)
+            _banner = _read_line(s)  # greeting
+            if port in (25, 587):
+                s.sendall(b"EHLO argus.local\r\n")
+                caps = ""
+                for _ in range(12):
+                    line = _read_line(s)
+                    caps += line
+                    if not line or line[3:4] == " ":
+                        break
+                has_tls = "STARTTLS" in caps.upper()
+            elif port == 110:
+                s.sendall(b"CAPA\r\n")
+                caps = ""
+                for _ in range(12):
+                    line = _read_line(s)
+                    caps += line
+                    if line.strip() == "." or not line:
+                        break
+                has_tls = "STLS" in caps.upper()
+            else:  # IMAP 143
+                s.sendall(b"a1 CAPABILITY\r\n")
+                caps = _read_line(s) + _read_line(s)
+                has_tls = "STARTTLS" in caps.upper()
+            try:
+                if port in (25, 587):
+                    s.sendall(b"QUIT\r\n")
+                elif port == 110:
+                    s.sendall(b"QUIT\r\n")
+                else:
+                    s.sendall(b"a2 LOGOUT\r\n")
+            except Exception:
+                pass
+    except Exception:
+        return findings
+    if not has_tls:
+        findings.append(_finding(
+            ip, port, f"{svc} offers no STARTTLS (cleartext credentials/mail)",
+            f"{ip}:{port} ({svc}) did not advertise STARTTLS.",
+            f"The {svc} service does not offer STARTTLS, so logins and message content can cross the "
+            "network in cleartext and be intercepted. Determined from the service's own capability "
+            "response; no credentials were sent.",
+            "Medium",
+            "Enable STARTTLS (or use the implicit-TLS port) and require encryption before "
+            "authentication.",
+            SRC_SVC))
+    return findings
+
+
+def check_ftp_tls(ip, port=21, timeout=4.0):
+    """Check whether an FTP service offers AUTH TLS (FEAT), read-only. No login —
+    not even anonymous — is attempted, honouring the no-default-credentials rule."""
+    findings = []
+    try:
+        with socket.create_connection((ip, port), timeout=timeout) as s:
+            s.settimeout(timeout)
+            _banner = _read_line(s)
+            s.sendall(b"FEAT\r\n")
+            feat = ""
+            for _ in range(15):
+                line = _read_line(s)
+                feat += line
+                if not line or line[:3] == "211" and line[3:4] == " ":
+                    break
+            try:
+                s.sendall(b"QUIT\r\n")
+            except Exception:
+                pass
+    except Exception:
+        return findings
+    up = feat.upper()
+    if "AUTH TLS" not in up and "AUTH SSL" not in up:
+        findings.append(_finding(
+            ip, port, "FTP offers no AUTH TLS (cleartext credentials)",
+            f"{ip}:{port} did not advertise AUTH TLS in its FEAT response.",
+            "This FTP service does not support explicit TLS, so credentials and files transfer in "
+            "cleartext and are trivially intercepted. Determined from the FEAT capability list; no "
+            "login (not even anonymous) was attempted.",
+            "Medium",
+            "Replace plain FTP with SFTP (SSH) or FTPS, and require encryption before login.",
+            SRC_SVC))
+    return findings
+
+
 # --------------------------------------------------------------------------
 if __name__ == "__main__":
     # offline self-tests of the parsing helpers (no network)

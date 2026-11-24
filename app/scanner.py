@@ -58,6 +58,47 @@ HTTPS_PORTS = {443, 8443}
 RISKY_PLAINTEXT = {23: "telnet", 21: "ftp", 161: "snmp", 6379: "redis",
                    11211: "memcached", 2049: "nfs"}
 
+# ---------------------------------------------------------------------------
+# Scan profiles — named port sets so the operator picks scope without typing
+# port lists. "Custom" (handled in the UI) lets them type their own.
+# ---------------------------------------------------------------------------
+_WEB_PORTS = [80, 443, 3000, 5000, 8000, 8008, 8080, 8081, 8088, 8443, 8888, 9000, 9090, 9200]
+_FULL_EXTRA = [
+    20, 69, 111, 123, 389, 512, 513, 514, 515, 631, 873, 902, 1025, 1080, 1194,
+    1723, 2222, 2375, 2376, 3268, 3690, 5060, 5601, 5672, 5986, 6000, 6443, 6667,
+    7001, 8000, 8008, 8081, 8088, 8161, 8888, 9000, 9090, 9100, 9418, 9999, 10000,
+    15672, 27018, 50000,
+]
+SCAN_PROFILES = {
+    "quick": {
+        "label": "Quick — top ~20 common ports",
+        "desc": "Fastest. The services most often found and most often at risk.",
+        "ports": [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 993, 995,
+                  1433, 3306, 3389, 5432, 8080, 8443],
+    },
+    "standard": {
+        "label": "Standard — default data-centre set",
+        "desc": "The recommended balance of coverage and speed.",
+        "ports": list(DEFAULT_PORTS),
+    },
+    "web": {
+        "label": "Web services — HTTP/HTTPS ports",
+        "desc": "Only web ports, with the extra TLS and header/content checks.",
+        "ports": _WEB_PORTS,
+    },
+    "full": {
+        "label": "Full — extended port set (slower)",
+        "desc": "Widest built-in coverage. Takes noticeably longer per host.",
+        "ports": sorted(set(DEFAULT_PORTS) | set(_FULL_EXTRA) | set(_WEB_PORTS)),
+    },
+}
+
+
+def profile_ports(name):
+    """Return the port list for a named profile, or None if unknown/custom."""
+    p = SCAN_PROFILES.get((name or "").strip().lower())
+    return list(p["ports"]) if p else None
+
 
 def _now_iso():
     return date.today().isoformat()
@@ -422,6 +463,16 @@ def scan_host(ip, ports=None, timeout=1.0, do_tls=True, do_http=True,
         if exp_f:
             findings.append(exp_f)
 
+        # Cleartext mail services — STARTTLS availability (capability chatter only)
+        if port in (25, 587, 110, 143):
+            say(f"{ip}:{port} checking mail transport security")
+            findings.extend(scanner_checks.check_mail_cleartext(ip, port, timeout=max(timeout, 4.0)))
+
+        # FTP transport security — AUTH TLS via FEAT (no login attempted)
+        if port == 21:
+            say(f"{ip}:{port} checking FTP transport security")
+            findings.extend(scanner_checks.check_ftp_tls(ip, port, timeout=max(timeout, 4.0)))
+
         # SSH algorithm posture (reads the server's advertised algorithms only)
         if port == 22 or banner.startswith("SSH-"):
             say(f"{ip}:{port} checking SSH algorithms")
@@ -474,6 +525,10 @@ def scan_host(ip, ports=None, timeout=1.0, do_tls=True, do_http=True,
             # risky methods, cookie flags, directory listing
             findings.extend(scanner_checks.check_http_hardening(ip, port, is_tls_http,
                                                                 timeout=max(timeout, 3.0)))
+            # exposed sensitive files/endpoints (.git, .env, server-status, …)
+            say(f"{ip}:{port} checking for exposed sensitive paths")
+            findings.extend(scanner_checks.check_exposed_paths(ip, port, is_tls_http,
+                                                               timeout=max(timeout, 3.0)))
 
     return findings
 
