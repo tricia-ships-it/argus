@@ -147,23 +147,56 @@ what's new since they last looked.
 **Does (non-destructive assessment):**
 
 - Host discovery (ping and/or TCP probe)
-- TCP port scan across your chosen ports
+- TCP port scan across your chosen ports, or a named **scan profile**
+  (quick / standard / web / full)
 - Service + version banner grab (SSH, HTTP, FTP, SMTP, …)
-- TLS/SSL checks: deprecated protocol support (TLS 1.0/1.1), untrusted /
-  expired / self-signed certificates
-- HTTP security-header review (missing HSTS, CSP, X-Frame-Options, …) and
-  server version disclosure
-- Risky-service flags (Telnet, exposed Redis/Memcached/NFS/SNMP, …)
-- Version → CVE matching against the **local** dataset (`vuln_db.py`)
+- TLS/SSL checks: deprecated protocol support (TLS 1.0/1.1), weak ciphers,
+  untrusted / expired / self-signed certificates
+- HTTP security-header review (missing HSTS, CSP, X-Frame-Options, …), server
+  version disclosure, risky methods, cookie flags and directory listing
+- Exposed sensitive files/endpoints (`.git`, `.env`, `server-status`,
+  `phpinfo`, `.htpasswd`, …) via benign GETs that record only the exposure
+- Cleartext mail (SMTP/POP3/IMAP without STARTTLS) and plain FTP without AUTH TLS
+- Risky-service and exposed-data-store flags (Telnet, SNMP, Redis, Memcached,
+  NFS, MongoDB, Elasticsearch, databases, …)
+- Version → CVE matching against the **local** dataset (`vuln_db.py`), with
+  **CVSS v3.1** base scores and vectors on matched findings
+- **KEV / threat-feed cross-reference:** a finding whose CVE is in the loaded
+  threat feed's Known-Exploited catalogue is flagged as actively exploited,
+  which escalates its actual risk through the risk matrix. Re-run any time with
+  **Re-check exploitation** on the findings page after refreshing feeds.
+- **Credentialed (authenticated) audit over SSH** — optional, read-only: logs
+  in with an account you provide to check OS end-of-life, pending security
+  updates, pending reboots and `sshd_config` posture (root login, password
+  auth, protocol 1). See below.
 
 **Does not:**
 
 - Send exploit payloads, run exploit modules, or achieve code execution
-- Brute-force or test credentials
+- Brute-force or test credentials (the credentialed audit uses only the account
+  you supply, and attempts no default or guessed logins — not even anonymous FTP)
 - Modify, delete, or disrupt anything on the target
 
 It makes the same benign connections any ordinary client makes. **Only scan
 systems you are authorised to assess.**
+
+### Credentialed scanning (read-only SSH audit)
+
+Authenticated checks see what the network can't: patch level and local
+configuration. On the **Run scan** page, tick *Run a read-only credentialed
+audit over SSH* and provide a username and a password or private key.
+
+- It requires the optional **`paramiko`** package on the Argus host
+  (`pip install paramiko`). Without it, the network scan runs as normal and the
+  credentialed step is skipped with a clear message.
+- It runs **only** a fixed, audited allowlist of read-only inspection commands
+  (see `COMMANDS` in `cred_audit.py`). There is no code path that runs an
+  arbitrary command, writes a file, escalates privilege, or changes anything.
+- **Credentials are never stored.** They are held in memory for the single scan
+  run, used to open one SSH session per host, and discarded — never written to
+  the database, disk, or the scan's status output. Scheduled scans are therefore
+  network-only; run credentialed audits interactively.
+- Use a dedicated low-privilege read-only account where you can.
 
 ### Keeping CVE coverage current
 

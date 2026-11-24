@@ -26,6 +26,7 @@ from flask import (
 
 import engine
 import cvss as cvss_mod
+import cred_audit
 from parsers import detect_and_parse
 import scanner as scanner_mod
 import auth
@@ -2480,6 +2481,14 @@ def scan_page():
     )
 
 
+def _safe_port(raw, default=22):
+    try:
+        p = int(str(raw).strip())
+        return p if 1 <= p <= 65535 else default
+    except (TypeError, ValueError):
+        return default
+
+
 @app.route("/scan/start", methods=["POST"])
 @auth.role_required("admin", "editor")
 def scan_start():
@@ -2532,8 +2541,21 @@ def scan_start():
         "do_http": request.form.get("do_http", "on") == "on",
         "ips": [],
         "committed": False,
+        "authenticated": request.form.get("auth_enable") == "on",
     }
     SCAN_JOBS[job_id] = job
+
+    # Credentials for the optional authenticated audit live ONLY in this local
+    # variable for the lifetime of the run — never stored on the job dict that
+    # the status endpoint reads, never written to the database or disk.
+    creds = None
+    if job["authenticated"]:
+        creds = {
+            "username": request.form.get("ssh_username", "").strip(),
+            "password": request.form.get("ssh_password", ""),
+            "key_data": request.form.get("ssh_key", ""),
+            "port": _safe_port(request.form.get("ssh_port", "22")),
+        }
 
     def run():
         def progress(msg):
@@ -2548,11 +2570,47 @@ def scan_start():
             )
             job["ips"] = ips
             job["findings"] = findings
-            job["progress"].append(f"Done. {len(ips)} host(s) probed, {len(findings)} finding(s).")
+            job["progress"].append(f"Network scan done. {len(ips)} host(s) probed, {len(findings)} finding(s).")
+            # ---- optional read-only credentialed audit (SSH) ----
+            if creds and ips:
+                if not cred_audit.paramiko_available():
+                    job["progress"].append(
+                        "Authenticated audit skipped: the 'paramiko' package isn't installed on "
+                        "this Argus host. Install it (pip install paramiko) to enable SSH audits.")
+                elif not creds["username"] or not (creds["password"] or creds["key_data"]):
+                    job["progress"].append(
+                        "Authenticated audit skipped: an SSH username and a password or key are required.")
+                else:
+                    job["progress"].append(f"Starting read-only credentialed audit on {len(ips)} host(s)…")
+                    ok = fail = 0
+                    for ip in ips:
+                        try:
+                            run_cmd, close = cred_audit.make_ssh_runner(
+                                ip, port=creds["port"], username=creds["username"],
+                                password=creds["password"], key_data=creds["key_data"])
+                        except cred_audit.CredAuditUnavailable as e:
+                            fail += 1
+                            progress(f"{ip}: credentialed audit unavailable — {e}")
+                            continue
+                        try:
+                            hf = cred_audit.audit_host(ip, run_cmd)
+                            job["findings"].extend(hf)
+                            ok += 1
+                            progress(f"{ip}: credentialed audit added {len(hf)} finding(s).")
+                        finally:
+                            close()
+                    job["progress"].append(
+                        f"Credentialed audit done: {ok} host(s) audited, {fail} unreachable/auth-failed.")
+            job["progress"].append(f"Done. {len(job['findings'])} finding(s) total.")
             job["status"] = "done"
         except Exception as e:
             job["progress"].append(f"Scan error: {e}")
             job["status"] = "error"
+        finally:
+            # scrub credentials from memory as soon as the run ends
+            if creds is not None:
+                for k in list(creds):
+                    creds[k] = None
 
     threading.Thread(target=run, daemon=True).start()
     return redirect(url_for("scan_progress", job_id=job_id))

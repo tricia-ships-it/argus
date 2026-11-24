@@ -84,6 +84,33 @@
     </div>
   </div>
 
+  <div class="panel">
+    <h2>Authenticated checks <span class="muted">(optional, read-only)</span></h2>
+    <p class="subhead">Log in to each live host over SSH with a read-only account to see patch level and local configuration the network can't show — the biggest single gain in thoroughness. Argus runs only a fixed list of inspection commands; it never changes anything.</p>
+    <label class="check" style="margin-bottom:6px"><input type="checkbox" name="auth_enable" id="authenable"> Run a read-only credentialed audit over SSH</label>
+    <div id="authfields" class="form-grid" hidden>
+      <div class="field">
+        <label>SSH username</label>
+        <input name="ssh_username" autocomplete="off" placeholder="e.g. svc-audit">
+      </div>
+      <div class="field">
+        <label>SSH port</label>
+        <input name="ssh_port" value="22" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>Password <span class="muted">(or use a key below)</span></label>
+        <input type="password" name="ssh_password" autocomplete="new-password">
+      </div>
+      <div class="field full">
+        <label>Private key <span class="muted">(optional; paste an OpenSSH key — password above unlocks it if encrypted)</span></label>
+        <textarea name="ssh_key" rows="4" autocomplete="off" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;…"></textarea>
+      </div>
+      <div class="field full">
+        <span class="hint" style="color:var(--low)">Credentials are used for this one scan and held only in memory — Argus never writes them to the database or disk. One credential set is tried against every live host. Needs the <code>paramiko</code> package on the Argus host.</span>
+      </div>
+    </div>
+  </div>
+
   <div class="panel" style="border-color:#2a3a1f;background:#161d13">
     <h2 style="color:var(--low)">What this scan does — and doesn't</h2>
     <ul style="color:var(--ink-dim);font-size:13px;line-height:1.7;margin:0;padding-left:18px">
@@ -117,6 +144,11 @@
         ports.value = "{{ default_ports }}";
       }
     });
+  }
+  var ae = document.getElementById('authenable');
+  var af = document.getElementById('authfields');
+  if (ae && af) {
+    ae.addEventListener('change', function () { af.hidden = !ae.checked; });
   }
 })();
 (function () {
