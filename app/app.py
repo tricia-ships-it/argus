@@ -273,6 +273,18 @@ def init_db():
             kind TEXT, at TEXT, user_agent TEXT,
             FOREIGN KEY(recipient_id) REFERENCES phish_recipient(id)
         );
+        -- Reusable recipient groups you maintain once and pull into campaigns.
+        CREATE TABLE IF NOT EXISTS phish_group (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE, created_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS phish_group_member (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_id INTEGER NOT NULL,
+            name TEXT, email TEXT, phone TEXT, handle TEXT, department TEXT,
+            created_at TEXT,
+            FOREIGN KEY(group_id) REFERENCES phish_group(id)
+        );
         CREATE TABLE IF NOT EXISTS shared_snapshot (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT, source TEXT, generated_at TEXT, generated_by TEXT,
@@ -2001,11 +2013,24 @@ def phishing_new():
             "body, landing_note, channel, status, created_by, created_at) "
             "VALUES (?,?,?,?,?,?,?,'Draft',?,?)",
             (name, key, sender, subject, body, landing, channel, me["id"], now))
+        new_cid = cur.lastrowid
+        # Optionally pre-load people from saved recipient groups.
+        pulled = 0
+        for gid in request.form.getlist("group_ids"):
+            try:
+                pulled += _import_group_into_campaign(db, new_cid, int(gid))
+            except (ValueError, TypeError):
+                continue
         db.commit()
         auth.log_activity(db, me["id"], None, "phishing",
                           f"created simulation campaign '{name}'")
-        return redirect(url_for("phishing_campaign", cid=cur.lastrowid))
-    return render_template("phishing_new.html", templates=phishing.TEMPLATES)
+        if pulled:
+            flash(f"Campaign created and {pulled} recipient(s) pulled in from your groups.")
+        return redirect(url_for("phishing_campaign", cid=new_cid))
+    saved_groups = db.execute(
+        "SELECT g.id, g.name, (SELECT COUNT(*) FROM phish_group_member m WHERE m.group_id=g.id) AS n "
+        "FROM phish_group g ORDER BY g.name").fetchall()
+    return render_template("phishing_new.html", templates=phishing.TEMPLATES, saved_groups=saved_groups)
 
 
 @app.route("/phishing/<int:cid>")
@@ -2025,6 +2050,13 @@ def phishing_campaign(cid):
     pstatus = delivery.provider_status()
     channel = c["channel"] or "email"
     job = sending.active_job(db, cid)
+    saved_groups = db.execute(
+        "SELECT g.id, g.name, (SELECT COUNT(*) FROM phish_group_member m WHERE m.group_id=g.id) AS n "
+        "FROM phish_group g ORDER BY g.name").fetchall()
+    # who is in each campaign group, for the "see members before sending" preview
+    group_members = {}
+    for r in recips:
+        group_members.setdefault(r["grp"] or "Ungrouped", []).append(r)
     return render_template(
         "phishing_campaign.html", c=c, recips=recips,
         stats=_campaign_stats(recips), flags=tpl.get("flags", []),
@@ -2033,6 +2065,7 @@ def phishing_campaign(cid):
         is_manual=(channel in delivery.MANUAL_CHANNELS),
         job=job, pending=sending.pending_count(db, cid),
         groups=sending.campaign_groups(db, cid),
+        saved_groups=saved_groups, group_members=group_members,
         ext_base=url_for("phish_land", token="", _external=True))
 
 
@@ -2079,6 +2112,160 @@ def phishing_recipients(cid):
     auth.log_activity(db, me["id"], None, "phishing",
                       f"added {added} recipients to campaign #{cid}")
     flash(f"Added {added} recipient(s)." + (f" Skipped {skipped}." if skipped else ""))
+    return redirect(url_for("phishing_campaign", cid=cid))
+
+
+def _add_members_from_text(db, group_id, raw):
+    """Parse pasted lines into group members, de-duplicating within the group."""
+    existing = set()
+    for m in db.execute("SELECT email, phone, handle FROM phish_group_member WHERE group_id=?", (group_id,)):
+        for v in (m["email"], m["phone"], m["handle"]):
+            if v:
+                existing.add(v.lower())
+    now = datetime.now().isoformat(timespec="seconds")
+    added = skipped = 0
+    for line in (raw or "").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        rec = _classify_recipient_fields([p.strip() for p in line.split(",")])
+        key = (rec["email"] or rec["phone"] or rec["handle"]).lower()
+        if not key or key in existing:
+            skipped += 1
+            continue
+        existing.add(key)
+        db.execute(
+            "INSERT INTO phish_group_member(group_id, name, email, phone, handle, department, created_at) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (group_id, rec["name"][:120], rec["email"][:254], rec["phone"][:40],
+             rec["handle"][:120], rec["dept"][:120], now))
+        added += 1
+    return added, skipped
+
+
+def _import_group_into_campaign(db, cid, group_id):
+    """Copy a saved group's members into a campaign's recipients, tagged with the
+    group name, skipping anyone already on the campaign."""
+    g = db.execute("SELECT name FROM phish_group WHERE id=?", (group_id,)).fetchone()
+    if not g:
+        return 0
+    gname = g["name"]
+    existing = set()
+    for r in _recipients_for(db, cid):
+        for v in (r["email"], r["phone"], r["handle"]):
+            if v:
+                existing.add(v.lower())
+    added = 0
+    for m in db.execute("SELECT * FROM phish_group_member WHERE group_id=?", (group_id,)):
+        key = (m["email"] or m["phone"] or m["handle"] or "").lower()
+        if not key or key in existing:
+            continue
+        existing.add(key)
+        db.execute(
+            "INSERT INTO phish_recipient(campaign_id, name, email, department, phone, handle, grp, token, click_count) "
+            "VALUES (?,?,?,?,?,?,?,?,0)",
+            (cid, m["name"] or "", m["email"] or "", m["department"] or "",
+             m["phone"] or "", m["handle"] or "", gname, _new_token()))
+        added += 1
+    return added
+
+
+@app.route("/phishing/groups")
+@auth.role_required("admin", "editor")
+def phishing_groups():
+    db = get_db()
+    groups = []
+    for g in db.execute("SELECT * FROM phish_group ORDER BY name"):
+        members = db.execute(
+            "SELECT * FROM phish_group_member WHERE group_id=? ORDER BY name, email", (g["id"],)).fetchall()
+        groups.append({"g": g, "members": members})
+    return render_template("phishing_groups.html", groups=groups)
+
+
+@app.route("/phishing/groups/add", methods=["POST"])
+@auth.role_required("admin", "editor")
+def phishing_group_add():
+    db = get_db()
+    name = (request.form.get("name") or "").strip()[:60]
+    if not name:
+        flash("Give the group a name.")
+        return redirect(url_for("phishing_groups"))
+    try:
+        db.execute("INSERT INTO phish_group(name, created_at) VALUES (?,?)",
+                   (name, datetime.now().isoformat(timespec="seconds")))
+        db.commit()
+        flash(f"Group '{name}' created. Add people to it below.")
+    except sqlite3.IntegrityError:
+        flash(f"A group called '{name}' already exists.")
+    return redirect(url_for("phishing_groups"))
+
+
+@app.route("/phishing/groups/<int:gid>/members/add", methods=["POST"])
+@auth.role_required("admin", "editor")
+def phishing_group_member_add(gid):
+    db = get_db()
+    if not db.execute("SELECT 1 FROM phish_group WHERE id=?", (gid,)).fetchone():
+        abort(404)
+    added, skipped = _add_members_from_text(db, gid, request.form.get("members", ""))
+    db.commit()
+    flash(f"Added {added} to the group." + (f" Skipped {skipped}." if skipped else ""))
+    return redirect(url_for("phishing_groups"))
+
+
+@app.route("/phishing/groups/<int:gid>/members/<int:mid>/remove", methods=["POST"])
+@auth.role_required("admin", "editor")
+def phishing_group_member_remove(gid, mid):
+    db = get_db()
+    db.execute("DELETE FROM phish_group_member WHERE id=? AND group_id=?", (mid, gid))
+    db.commit()
+    return redirect(url_for("phishing_groups"))
+
+
+@app.route("/phishing/groups/<int:gid>/delete", methods=["POST"])
+@auth.role_required("admin", "editor")
+def phishing_group_delete(gid):
+    db = get_db()
+    db.execute("DELETE FROM phish_group_member WHERE group_id=?", (gid,))
+    db.execute("DELETE FROM phish_group WHERE id=?", (gid,))
+    db.commit()
+    flash("Group deleted.")
+    return redirect(url_for("phishing_groups"))
+
+
+@app.route("/phishing/<int:cid>/add-group", methods=["POST"])
+@auth.role_required("admin", "editor")
+def phishing_add_group(cid):
+    db = get_db()
+    me = auth.current_user(db)
+    c = db.execute("SELECT * FROM phish_campaign WHERE id=?", (cid,)).fetchone()
+    if not c:
+        abort(404)
+    if c["status"] == "Closed":
+        flash("This campaign is closed.")
+        return redirect(url_for("phishing_campaign", cid=cid))
+    gid = request.form.get("group_id", "")
+    g = db.execute("SELECT * FROM phish_group WHERE id=?", (gid,)).fetchone() if gid else None
+    if not g:
+        flash("Pick a saved group to add.")
+        return redirect(url_for("phishing_campaign", cid=cid))
+    added = _import_group_into_campaign(db, cid, g["id"])
+    db.commit()
+    auth.log_activity(db, me["id"], None, "phishing",
+                      f"added group '{g['name']}' ({added}) to campaign #{cid}")
+    flash(f"Added {added} people from '{g['name']}'.")
+    return redirect(url_for("phishing_campaign", cid=cid))
+
+
+@app.route("/phishing/<int:cid>/recipient/<int:rid>/remove", methods=["POST"])
+@auth.role_required("admin", "editor")
+def phishing_recipient_remove(cid, rid):
+    db = get_db()
+    c = db.execute("SELECT status FROM phish_campaign WHERE id=?", (cid,)).fetchone()
+    if not c:
+        abort(404)
+    db.execute("DELETE FROM phish_event WHERE recipient_id=? AND campaign_id=?", (rid, cid))
+    db.execute("DELETE FROM phish_recipient WHERE id=? AND campaign_id=?", (rid, cid))
+    db.commit()
     return redirect(url_for("phishing_campaign", cid=cid))
 
 

@@ -65,9 +65,23 @@
     <textarea id="landing_note" name="landing_note" rows="3" placeholder="e.g. This was a security awareness exercise run by the InfoSec team. No action is needed."></textarea>
   </div>
 
+  <div class="field">
+    <label>Recipients <span class="muted">(optional, you can also add them on the next screen)</span></label>
+    {% if saved_groups %}
+    <div class="grp-pick">
+      {% for g in saved_groups %}
+      <label class="grp-opt"><input type="checkbox" name="group_ids" value="{{ g.id }}"> <span>{{ g.name }} <span class="muted">({{ g.n }})</span></span></label>
+      {% endfor %}
+    </div>
+    <p class="hint">Tick any saved groups to pull their people into this campaign. <a href="{{ url_for('phishing_groups') }}">Manage groups</a></p>
+    {% else %}
+    <p class="hint">You have no saved recipient groups yet. You can <a href="{{ url_for('phishing_groups') }}">build reusable groups</a>, or just add people on the next screen.</p>
+    {% endif %}
+  </div>
+
   <div class="form-actions">
     <button class="btn primary" type="submit">Create campaign →</button>
-    <span class="note" style="margin:0">You'll add recipients and get the tracking links on the next screen.</span>
+    <span class="note" style="margin:0">You'll add or adjust recipients and get the tracking links on the next screen.</span>
   </div>
 </form>
 

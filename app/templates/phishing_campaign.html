@@ -80,6 +80,13 @@
             {% else %}
             <button class="btn sm ghost copylink" data-link="{{ url_for('phish_land', token=r.token, _external=True) }}">Copy link</button>
             {% endif %}
+            {% if can_manage and c.status != 'Closed' %}
+            <form method="post" action="{{ url_for('phishing_recipient_remove', cid=c.id, rid=r.id) }}" style="display:inline"
+                  onsubmit="return confirm('Remove this person from the campaign?')">
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button class="btn xs ghost" type="submit" title="Remove from campaign">✕</button>
+            </form>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -91,10 +98,24 @@
     {% endif %}
 
     {% if can_manage and c.status != 'Closed' %}
+    {% if saved_groups %}
+    <form method="post" action="{{ url_for('phishing_add_group', cid=c.id) }}" class="toolbar" style="margin:16px 0 0">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label class="lbl" style="margin:0">Add from a saved group</label>
+      <select name="group_id" required style="flex:1;max-width:280px">
+        <option value="">Choose a group…</option>
+        {% for g in saved_groups %}<option value="{{ g.id }}">{{ g.name }} ({{ g.n }})</option>{% endfor %}
+      </select>
+      <button class="btn" type="submit">Add group</button>
+      <a class="btn ghost sm" href="{{ url_for('phishing_groups') }}">Manage groups</a>
+    </form>
+    {% else %}
+    <p class="note" style="margin-top:16px">Tip: build reusable <a href="{{ url_for('phishing_groups') }}">recipient groups</a> once, then pull them into any campaign.</p>
+    {% endif %}
     <form method="post" action="{{ url_for('phishing_recipients', cid=c.id) }}" class="stack" style="margin-top:16px">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <div class="field">
-        <label for="recipients">Add recipients, <span class="muted">one per line. Mix any of: name, email, <span class="mono">+phone</span>, <span class="mono">@handle</span>, department in any order</span></label>
+        <label for="recipients">Or add people directly, <span class="muted">one per line. Mix any of: name, email, <span class="mono">+phone</span>, <span class="mono">@handle</span>, department in any order</span></label>
         <textarea id="recipients" name="recipients" rows="4" {{ 'autofocus' if not recips }} placeholder="Alex Mensah, alex@company.example, Finance&#10;Jordan Owusu, +233201234567&#10;Ama Boateng, @ama.b, ama@company.example"></textarea>
       </div>
       <div class="field">
@@ -160,10 +181,20 @@
             <label class="lbl">Send to groups</label>
             <div class="grp-pick">
               {% for g in groups %}
-              <label class="grp-opt"><input type="checkbox" name="group" value="{{ g.name }}" checked> <span>{{ g.name or 'Ungrouped' }} <span class="muted">({{ g.count }})</span></span></label>
+              <div class="grp-row">
+                <label class="grp-opt"><input type="checkbox" name="group" value="{{ g.name }}" checked> <span>{{ g.name or 'Ungrouped' }} <span class="muted">({{ g.count }})</span></span></label>
+                <details class="grp-members">
+                  <summary>see who</summary>
+                  <ul>
+                    {% for r in group_members.get(g.name or 'Ungrouped', []) %}
+                    <li>{{ r.name or (r.email or r.phone or r.handle) }} <span class="muted mono">{{ r.email or r.phone or r.handle }}</span></li>
+                    {% endfor %}
+                  </ul>
+                </details>
+              </div>
               {% endfor %}
             </div>
-            <span class="hint">Untick a group to leave it out of this send.</span>
+            <span class="hint">Untick a group to leave it out of this send. Expand "see who" to check the people in each group before you send.</span>
           </div>
           {% endif %}
           <div class="grid-2" style="gap:10px">

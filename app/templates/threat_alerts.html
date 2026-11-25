@@ -21,6 +21,19 @@
     <p class="lede">Public vulnerability feeds matched against your findings and asset inventory, locally. Actively-exploited (CISA KEV) issues that touch your estate are raised first.</p>
   </div>
   <div class="head-actions">
+    {% if can_import_or_scan %}
+    <form method="post" action="{{ url_for('threatintel_update') }}" style="display:inline"
+          title="{{ 'Fetch the latest advisories from your configured sources' if enabled else 'Online updates are off; turn them on in Feed settings first' }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn primary" type="submit">Load latest threats</button>
+    </form>
+    <form method="post" action="{{ url_for('threatintel_import') }}" enctype="multipart/form-data" style="display:inline"
+          id="tiImport" title="Import a feed file for an air-gapped network">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="file" name="file" id="tiFile" accept=".json" style="display:none" onchange="document.getElementById('tiImport').submit()">
+      <button class="btn ghost" type="button" onclick="document.getElementById('tiFile').click()">Import feed file</button>
+    </form>
+    {% endif %}
     <a class="btn ghost" href="{{ url_for('settings_page', section='feeds') }}">Feed settings</a>
   </div>
 </div>
@@ -28,8 +41,19 @@
 {% if not feed_count %}
 <div class="empty">
   <h3>No threat feed loaded yet</h3>
-  <p>Load a feed to start matching. Either enable online updates in <a href="{{ url_for('settings_page', section='feeds') }}">Settings</a> and run an update, or import a feed file produced by <span class="mono">feedsync.py</span> on a connected machine. Matching happens entirely on this box, nothing about your assets is sent anywhere.</p>
-  <a class="btn primary" href="{{ url_for('settings_page', section='feeds') }}">Go to feed settings</a>
+  <p>Load a feed to start matching. Turn on online updates in <a href="{{ url_for('settings_page', section='feeds') }}">Settings</a> then use <b>Load latest threats</b>, or import a feed file produced by <span class="mono">feedsync.py</span> on a connected machine. Matching happens entirely on this box, nothing about your assets is sent anywhere.</p>
+  {% if can_import_or_scan %}
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+    {% if enabled %}
+    <form method="post" action="{{ url_for('threatintel_update') }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn primary" type="submit">Load latest threats</button>
+    </form>
+    {% else %}
+    <a class="btn primary" href="{{ url_for('settings_page', section='feeds') }}">Turn on updates in settings</a>
+    {% endif %}
+  </div>
+  {% endif %}
 </div>
 {% else %}
 <div class="stats" title="Click to filter the alerts">

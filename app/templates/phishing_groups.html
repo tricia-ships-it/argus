@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Recipient groups · Argus{% endblock %}
+{% block body %}
+<div class="page-head">
+  <div>
+    <p class="crumb"><a href="{{ url_for('phishing_view') }}">Phishing awareness</a> ›</p>
+    <h1>Recipient groups</h1>
+    <p class="lede">Saved lists of people you can reuse across campaigns. Build a group once (for example Finance or Executives), then pull it into a campaign when you create it or from the campaign page.</p>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>New group</h2>
+  <form method="post" action="{{ url_for('phishing_group_add') }}" class="toolbar" style="margin:0">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="text" name="name" placeholder="e.g. Finance team" required style="flex:1">
+    <button class="btn primary" type="submit">Create group</button>
+  </form>
+</div>
+
+{% if not groups %}
+<div class="empty"><h3>No groups yet</h3><p>Create one above, then add people to it.</p></div>
+{% else %}
+{% for item in groups %}
+<div class="panel" style="margin-top:14px">
+  <div class="page-head" style="margin:0 0 10px">
+    <div><h2 style="margin:0">{{ item.g.name }} <span class="muted" style="font-size:13px">{{ item.members|length }} {{ 'person' if item.members|length == 1 else 'people' }}</span></h2></div>
+    <div class="head-actions">
+      <form method="post" action="{{ url_for('phishing_group_delete', gid=item.g.id) }}" style="display:inline"
+            onsubmit="return confirm('Delete the group {{ item.g.name }} and its member list?')">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="btn ghost danger sm" type="submit">Delete group</button>
+      </form>
+    </div>
+  </div>
+
+  {% if item.members %}
+  <div class="table-scroll"><table class="grid">
+    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Handle</th><th>Department</th><th></th></tr></thead>
+    <tbody>
+      {% for m in item.members %}
+      <tr>
+        <td>{{ m.name or '-' }}</td>
+        <td class="mono">{{ m.email or '-' }}</td>
+        <td class="mono">{{ m.phone or '-' }}</td>
+        <td class="mono">{{ m.handle or '-' }}</td>
+        <td>{{ m.department or '-' }}</td>
+        <td class="nowrap" style="text-align:right">
+          <form method="post" action="{{ url_for('phishing_group_member_remove', gid=item.g.id, mid=m.id) }}" style="display:inline">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button class="btn xs ghost" type="submit" title="Remove from group">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <div class="note">No people in this group yet. Add some below.</div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('phishing_group_member_add', gid=item.g.id) }}" class="stack" style="margin-top:12px">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="field">
+      <label>Add people, <span class="muted">one per line. Mix any of: name, email, <span class="mono">+phone</span>, <span class="mono">@handle</span>, department in any order</span></label>
+      <textarea name="members" rows="3" placeholder="Alex Mensah, alex@company.example, Finance&#10;Jordan Owusu, +233201234567"></textarea>
+    </div>
+    <div><button class="btn" type="submit">Add to {{ item.g.name }}</button></div>
+  </form>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

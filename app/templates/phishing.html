@@ -8,7 +8,8 @@
     <p class="lede">Run simulated phishing exercises against your own staff, measure who clicks, and turn every click into a teachable moment. No real credentials are ever collected, the link leads to a short lesson, not a login page.</p>
   </div>
   <div class="head-actions">
-    {% if can_import_or_scan %}<a class="btn primary" href="{{ url_for('phishing_new') }}">+ New campaign</a>{% endif %}
+    {% if can_import_or_scan %}<a class="btn ghost" href="{{ url_for('phishing_groups') }}">Recipient groups</a>
+    <a class="btn primary" href="{{ url_for('phishing_new') }}">+ New campaign</a>{% endif %}
   </div>
 </div>
 
