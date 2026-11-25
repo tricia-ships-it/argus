@@ -118,7 +118,7 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 /* ---- top bar ---- */
 .topbar {
   display: flex; align-items: center; gap: 22px;
-  padding: 0 22px; height: 56px;
+  padding: 7px 22px; min-height: 56px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 20;
