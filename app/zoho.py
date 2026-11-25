@@ -19,7 +19,7 @@ Argus deliberately reaches OUT to the internet, so it is tightly constrained:
     network and no real credentials.
 
 Mapping reuses asset_classify.classify(), so a synced asset is classified
-exactly like an imported one — including the OT "do not actively scan"
+exactly like an imported one, including the OT "do not actively scan"
 interlock.
 """
 
@@ -126,7 +126,7 @@ def fetch_records(conn, http_post=None, http_get=None):
         raise ZohoError(f"Unknown Zoho data centre {dc!r}")
     for k in ("owner", "app", "report"):
         if not conn.get(k):
-            raise ZohoError("Zoho connection is incomplete — set the owner, app and report in settings.")
+            raise ZohoError("Zoho connection is incomplete, set the owner, app and report in settings.")
     token = get_access_token(dc, http_post)
     api = _api_host(dc)
     base = (f"https://{api}/creator/v2.1/data/"
@@ -173,7 +173,7 @@ def map_records(records, mapping):
             zf = (mapping or {}).get(canon)
             if zf:
                 val = rec.get(zf, "")
-                # Zoho can return nested objects (e.g. lookups) — take a string
+                # Zoho can return nested objects (e.g. lookups), take a string
                 if isinstance(val, dict):
                     val = val.get("display_value") or val.get("zc_display_value") or ""
                 row[canon] = str(val).strip()
@@ -184,7 +184,7 @@ def map_records(records, mapping):
 
 
 def _self_test():
-    # fake token + data transports — no network, no creds
+    # fake token + data transports, no network, no creds
     os.environ["ARGUS_ZOHO_CLIENT_ID"] = "cid"
     os.environ["ARGUS_ZOHO_CLIENT_SECRET"] = "sec"
     os.environ["ARGUS_ZOHO_REFRESH_TOKEN"] = "rt"
@@ -199,7 +199,7 @@ def _self_test():
 
     pages = [
         json.dumps({"code": 3000, "data": [{"IP": "10.0.0.1", "Name": "web-01", "Crit": "High", "Kind": "Server"}]}),
-        json.dumps({"code": 3100}),   # no more
+        json.dumps({"code": 3100}),  # no more
     ]
     gets = []
     def fake_get(url, headers=None, timeout=30):

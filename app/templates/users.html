@@ -30,7 +30,7 @@
               <div>{{ u.display_name or u.username }}{% if u.id == me_id %} <span class="pill">you</span>{% endif %}</div>
               <div class="muted mono" style="font-size:11px">{{ u.username }}</div>
             </td>
-            <td class="muted">{{ u.email or '—' }}</td>
+            <td class="muted">{{ u.email or '-' }}</td>
             <td>
               <form method="post" action="{{ url_for('users_role', uid=u.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
                 <select name="role" class="statussel" onchange="this.form.submit()" {{ 'disabled' if u.id == me_id }}>
@@ -39,7 +39,7 @@
               </form>
             </td>
             <td>{% if u.active %}<span class="rto Met">Active</span>{% else %}<span class="muted">Inactive</span>{% endif %}</td>
-            <td class="mono muted nowrap" style="font-size:11.5px">{{ u.last_active[:16].replace('T',' ') if u.last_active else '—' }}</td>
+            <td class="mono muted nowrap" style="font-size:11.5px">{{ u.last_active[:16].replace('T',' ') if u.last_active else '-' }}</td>
             <td class="nowrap row-actions">
               <details class="umenu">
                 <summary class="btn sm ghost">Manage</summary>

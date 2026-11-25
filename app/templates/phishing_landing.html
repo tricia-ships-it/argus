@@ -36,7 +36,7 @@
       {% if known and active %}
       <span class="land-badge">⚠ This was a simulated phishing test</span>
       <h1>You clicked a simulated phishing link</h1>
-      <p class="sub">No harm done, and nothing was installed or collected — this exercise was run by your own security team to help everyone practise spotting real attacks. Had this been a genuine phishing email, clicking could have exposed your account or your organisation. Here's what gave it away:</p>
+      <p class="sub">No harm done, and nothing was installed or collected, this exercise was run by your own security team to help everyone practise spotting real attacks. Had this been a genuine phishing email, clicking could have exposed your account or your organisation. Here's what gave it away:</p>
       {% else %}
       <span class="land-badge">Security awareness</span>
       <h1>Spot the phish</h1>
@@ -63,9 +63,9 @@
       <div class="foot">
         {% if known and active %}
           {% if reported %}
-          <span class="reported-ok">✓ Thanks — you've marked this as reported.</span>
+          <span class="reported-ok">✓ Thanks, you've marked this as reported.</span>
           {% else %}
-          <a class="btn primary" href="{{ url_for('phish_reported', token=token) }}">I recognise this — report it</a>
+          <a class="btn primary" href="{{ url_for('phish_reported', token=token) }}">I recognise this, report it</a>
           <span class="safe" style="margin:0">In a real attack, reporting is exactly the right move.</span>
           {% endif %}
         {% endif %}

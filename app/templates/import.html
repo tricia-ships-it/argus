@@ -3,7 +3,7 @@
 {% block body %}
 
 <h1>Import scan results</h1>
-<p class="lede">Upload the output from your scan engines. The register fills itself — severity, CVEs, synopsis and solution are read straight from the file.</p>
+<p class="lede">Upload the output from your scan engines. The register fills itself, severity, CVEs, synopsis and solution are read straight from the file.</p>
 
 <form method="post" enctype="multipart/form-data"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   <div class="panel">
@@ -30,7 +30,7 @@
       <div class="field">
         <label>Default Asset Classification</label>
         <select name="default_classification">
-          <option value="">— leave blank, set per asset —</option>
+          <option value="">leave blank, set per asset,</option>
           {% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
         </select>
         <span class="hint">Business-criticality of these hosts. Needed before Actual Risk calculates.</span>
@@ -38,7 +38,7 @@
       <div class="field">
         <label>Default Asset Owner</label>
         <select name="default_owner">
-          <option value="">— unassigned —</option>
+          <option value="">unassigned,</option>
           {% for o in owners %}<option value="{{ o }}">{{ o }}</option>{% endfor %}
         </select>
       </div>

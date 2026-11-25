@@ -1,11 +1,11 @@
 """
 Multi-channel delivery for phishing-awareness drills.
 
-Architecture (deliberate — do not collapse):
+Architecture (deliberate, do not collapse):
   * Argus owns the recipient list, personalisation, the per-recipient tracked
     link and all click/report tracking. It does NOT own the transport. Each
     channel is delegated to a provider the organisation already controls and
-    is accountable for — their own SMTP server, their own Twilio account.
+    is accountable for, their own SMTP server, their own Twilio account.
     Argus formats {message + personal tracked link} and hands it off; it never
     becomes the sending engine itself.
   * Provider credentials are read from the environment / a local config file,
@@ -17,14 +17,14 @@ Architecture (deliberate — do not collapse):
     There is no code path that sends to an arbitrary uploaded list.
 
 Channels:
-  * email     — SMTP (smtplib), the org's mail server.               [built]
-  * sms       — Twilio-compatible Messages API.                      [built]
-  * whatsapp  — same Twilio API with a whatsapp: sender. NOTE Twilio/Meta only
+  * email   , SMTP (smtplib), the org's mail server.               [built]
+  * sms     , Twilio-compatible Messages API.                      [built]
+  * whatsapp, same Twilio API with a whatsapp: sender. NOTE Twilio/Meta only
                 deliver pre-approved templates, so lure content is usually
                 rejected; wired for completeness, not relied upon.   [built]
-  * voice     — vishing. Intentionally NOT automated here; higher risk and
+  * voice   , vishing. Intentionally NOT automated here; higher risk and
                 needs a per-campaign voice script. Left as a documented hook.
-  * social    — automated DMs to social handles are intentionally unsupported:
+  * social  , automated DMs to social handles are intentionally unsupported:
                 no platform offers a sanctioned API for unsolicited lure links,
                 it breaks their terms, and personal social accounts fall
                 outside an authorised staff directory. Argus prepares the
@@ -54,7 +54,7 @@ DOCUMENTED_HOOKS = ["voice"]                       # extension point only
 def first_name(name, email):
     """Best-effort first name: explicit Name field wins, else derive from the
     email local-part (patricia.agyekum@x -> 'Patricia'). Falls back to 'there'
-    so a message never reads 'Hi ,'."""
+    so a message never reads 'Hi,'."""
     if name and name.strip():
         tok = name.strip().split()[0]
         if tok.isalpha():
@@ -117,7 +117,7 @@ def twilio_config():
 
 
 def provider_status():
-    """What the Settings page shows — configured or not, no secrets revealed."""
+    """What the Settings page shows, configured or not, no secrets revealed."""
     s, t = smtp_config(), twilio_config()
     return {
         "email": bool(s["host"] and s["from_addr"]),
@@ -211,7 +211,7 @@ class TwilioProvider:
 
 
 # ---------------------------------------------------------------------------
-# Dispatch — one recipient, one channel
+# Dispatch, one recipient, one channel
 # ---------------------------------------------------------------------------
 def dispatch(channel, recipient, campaign, link, providers=None):
     """recipient: dict-like with name/email/phone. campaign: dict-like with
@@ -243,7 +243,7 @@ def _self_test():
     r = render("email", "Hi {{name}}, {{link}}", "Subj", "", "amin.k@x", "L")
     assert r == {"subject": "Subj", "body": "Hi Amin, L"}, r
 
-    # email via fake SMTP transport — proves the pipeline, no real network
+    # email via fake SMTP transport, proves the pipeline, no real network
     sent = {}
     class FakeSMTP:
         def starttls(self, *a, **k): pass

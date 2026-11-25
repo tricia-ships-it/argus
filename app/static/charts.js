@@ -1,4 +1,4 @@
-/* charts.js — tiny dependency-free SVG charts for the VAPT dashboard.
+/* charts.js, tiny dependency-free SVG charts for the VAPT dashboard.
    No external library: works fully offline. Colours come from CSS custom
    properties so charts follow the light/dark theme automatically. */
 (function () {

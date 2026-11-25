@@ -1,14 +1,14 @@
 """
-auth.py — local user accounts, roles, sessions and permissions.
+auth.py, local user accounts, roles, sessions and permissions.
 
 All local, offline. Passwords are hashed with werkzeug's PBKDF2 (ships with
-Flask — no extra dependency). Sessions are signed with a secret key that is
+Flask, no extra dependency). Sessions are signed with a secret key that is
 generated once and stored on disk so logins survive restarts.
 
 Roles:
-  admin   — manage users + everything an editor can do
-  editor  — the security team: edit findings, change status, import, scan
-  viewer  — bosses, colleagues, asset owners: view everything and comment;
+  admin , manage users + everything an editor can do
+  editor, the security team: edit findings, change status, import, scan
+  viewer, bosses, colleagues, asset owners: view everything and comment;
             may also change the status of a finding whose Asset Owner matches
             their account (owners self-report progress on their own assets)
 """
@@ -33,7 +33,7 @@ ROLE_SUMMARY = {
     "viewer": "Read-only across the app, with the ability to comment.",
 }
 
-# What each access level can do — drives the matrix on the admin console and
+# What each access level can do, drives the matrix on the admin console and
 # documents the role_required() gates enforced on the routes.
 PERMISSION_MATRIX = [
     ("View dashboards, findings & reports", {"admin": True, "editor": True, "viewer": True}),
@@ -108,7 +108,7 @@ def init_auth_schema(db):
 
 
 def needs_setup(db):
-    """True when no accounts exist yet — the app should run first-run setup so
+    """True when no accounts exist yet, the app should run first-run setup so
     the first administrator creates their own profile (rather than being handed
     a generated password)."""
     return db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
@@ -136,7 +136,7 @@ def verify_login(db, username, password):
 
 def create_user(db, username, display_name, email, password, role, must_change=True):
     """Create an account. By default the user must change their password at
-    first sign-in (must_change=True) — used for admin-created teammate accounts.
+    first sign-in (must_change=True), used for admin-created teammate accounts.
     First-run setup passes must_change=False, since the admin just chose it."""
     cur = db.execute(
         "INSERT INTO users(username, display_name, email, password_hash, role, active, must_change_pw, created_at) "

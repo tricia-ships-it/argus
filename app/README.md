@@ -2,24 +2,24 @@
 
 A self-contained, **offline** vulnerability assessment and remediation-tracking
 platform for quarterly data-centre VAPT work. It runs entirely on your internal
-network — no internet, no telemetry, no data leaves the machine.
+network, no internet, no telemetry, no data leaves the machine.
 
 It does two jobs:
 
-1. **Assess** — a built-in scanner probes your targets locally (discovery, open
+1. **Assess**, a built-in scanner probes your targets locally (discovery, open
    ports, service/version fingerprinting, TLS/SSL checks, HTTP security-header
    review, and known-CVE matching). It also **imports** results from Nessus,
    OpenVAS/Greenbone and Nmap so you can corroborate with your trusted engines.
-2. **Track & report** — every finding is classified, given a target fix date,
+2. **Track & report**, every finding is classified, given a target fix date,
    and tracked through remediation, with your exact report structure and all the
    automation (Actual Risk, Target Fix Date, Risk Tolerance Objective, etc.).
    Exports to Excel (live formulas) and PDF.
-3. **Collaborate** — your whole team signs in with individual accounts, sees the
+3. **Collaborate**, your whole team signs in with individual accounts, sees the
    same register, comments on findings, and watches an activity feed of what's
    changed. Hosted on your intranet; reachable by IP from any browser inside the
    network.
 
-> **Scope note.** This tool performs *vulnerability assessment* — it identifies
+> **Scope note.** This tool performs *vulnerability assessment*, it identifies
 > and reports. It does **not** exploit, brute-force, or alter targets.
 > Penetration testing is done manually by your team, by design. See
 > "What the scanner does and doesn't do" below.
@@ -34,7 +34,7 @@ On a machine with Python 3.9+:
 pip install -r requirements.txt
 ```
 
-`Flask` and `openpyxl` are required. `reportlab` is optional — without it, PDF
+`Flask` and `openpyxl` are required. `reportlab` is optional, without it, PDF
 export produces a print-ready HTML page instead (use your browser's *Print →
 Save as PDF*).
 
@@ -49,7 +49,7 @@ pip install --no-index --find-links wheels/ -r requirements.txt
 ```
 
 The application code itself uses only the Python standard library plus Flask and
-openpyxl — nothing else is fetched at runtime.
+openpyxl, nothing else is fetched at runtime.
 
 ## 2. Run
 
@@ -63,7 +63,7 @@ Bind to the machine's intranet address (`--host`) so colleagues can reach it at
 
 Data is stored in `vapt.db` (SQLite) next to `app.py`. Back that file up to keep
 your register, accounts, comments and activity. A `.secret_key` file is created
-next to it to sign login sessions — keep it (don't commit it anywhere public);
+next to it to sign login sessions, keep it (don't commit it anywhere public);
 deleting it just logs everyone out. To start completely fresh, stop the app and
 delete both `vapt.db` and `.secret_key`.
 
@@ -79,7 +79,7 @@ one-time password to the console:
 
 ```
 ================================================================
-  FIRST RUN — an administrator account has been created.
+  FIRST RUN, an administrator account has been created.
     Username: admin
     One-time password: <shown here>
 ================================================================
@@ -108,37 +108,37 @@ the "Editors plus asset owners" model.)
 Admins can deactivate an account (blocks sign-in, keeps their history) or reset a
 password (the user must then choose a new one at next sign-in).
 
-### Security note — put it behind HTTPS
+### Security note, put it behind HTTPS
 
 By default the app serves plain HTTP, which is fine on a trusted internal
 segment. Because people log in with passwords, for anything wider you should
-terminate **HTTPS** in front of it — e.g. an internal reverse proxy (nginx,
-Caddy, IIS/ARR) with a certificate from your internal CA — and restrict access to
+terminate **HTTPS** in front of it, e.g. an internal reverse proxy (nginx,
+Caddy, IIS/ARR) with a certificate from your internal CA, and restrict access to
 the management VLAN by firewall. The app never reaches the internet either way.
 
 ## 3. Use
 
-**Run scan** — enter target IPs, ranges (`10.0.0.1-20`) or CIDR (`10.0.0.0/24`),
+**Run scan**, enter target IPs, ranges (`10.0.0.1-20`) or CIDR (`10.0.0.0/24`),
 pick your ports, and start. Progress streams live; when it finishes, review the
 count and click **Add findings to register**.
 
-**Import scan** — upload `.nessus`, Nessus CSV, OpenVAS XML/CSV, or Nmap `-oX`
+**Import scan**, upload `.nessus`, Nessus CSV, OpenVAS XML/CSV, or Nmap `-oX`
 XML. The register fills itself (severity, CVEs, synopsis, solution).
 
-**Findings** — the register. Change a status inline (Actual Fix Date stamps
+**Findings**, the register. Change a status inline (Actual Fix Date stamps
 itself for *Fixed* / *Not Applicable*, and Risk Tolerance recalculates). Open any
 finding to edit every field, set asset criticality, raise an exception, or add
 owner comments.
 
-**Discussion** — every finding has a comment thread. Anyone with access can post;
+**Discussion**, every finding has a comment thread. Anyone with access can post;
 each comment is stamped with who wrote it and when, and shows up in the activity
 feed. Use it for questions, remediation updates, and decisions.
 
-**Activity** — a running feed of everything that's changed (status updates,
+**Activity**, a running feed of everything that's changed (status updates,
 comments, imports, scans, new accounts) so anyone returning to the tool can see
 what's new since they last looked.
 
-**Export** — Excel (with live formulas) or PDF, any time.
+**Export**, Excel (with live formulas) or PDF, any time.
 
 ---
 
@@ -165,7 +165,7 @@ what's new since they last looked.
   threat feed's Known-Exploited catalogue is flagged as actively exploited,
   which escalates its actual risk through the risk matrix. Re-run any time with
   **Re-check exploitation** on the findings page after refreshing feeds.
-- **Credentialed (authenticated) audit over SSH** — optional, read-only: logs
+- **Credentialed (authenticated) audit over SSH**, optional, read-only: logs
   in with an account you provide to check OS end-of-life, pending security
   updates, pending reboots and `sshd_config` posture (root login, password
   auth, protocol 1). See below.
@@ -174,7 +174,7 @@ what's new since they last looked.
 
 - Send exploit payloads, run exploit modules, or achieve code execution
 - Brute-force or test credentials (the credentialed audit uses only the account
-  you supply, and attempts no default or guessed logins — not even anonymous FTP)
+  you supply, and attempts no default or guessed logins, not even anonymous FTP)
 - Modify, delete, or disrupt anything on the target
 
 It makes the same benign connections any ordinary client makes. **Only scan
@@ -193,7 +193,7 @@ audit over SSH* and provide a username and a password or private key.
   (see `COMMANDS` in `cred_audit.py`). There is no code path that runs an
   arbitrary command, writes a file, escalates privilege, or changes anything.
 - **Credentials are never stored.** They are held in memory for the single scan
-  run, used to open one SSH session per host, and discarded — never written to
+  run, used to open one SSH session per host, and discarded, never written to
   the database, disk, or the scan's status output. Scheduled scans are therefore
   network-only; run credentialed audits interactively.
 - Use a dedicated low-privilege read-only account where you can.
@@ -204,7 +204,7 @@ The built-in scanner matches against a curated **local** dataset of high-impact
 infrastructure CVEs and EOL rules (`vuln_db.py`) so it works offline. This is
 **not** a substitute for a maintained feed. For authoritative, always-current
 coverage, run **Nessus or OpenVAS** (tens of thousands of maintained checks) and
-import their results — the two approaches corroborate each other.
+import their results, the two approaches corroborate each other.
 
 Extend the local dataset by editing `VERSION_RULES` / `EOL_RULES` in
 `vuln_db.py`, or load an updated JSON offline with `vuln_db.load_external(path)`.
@@ -216,12 +216,12 @@ Extend the local dataset by editing `VERSION_RULES` / `EOL_RULES` in
 These are applied identically in the app and in the exported Excel, so both
 agree to the day.
 
-**Actual Risk Classification** — looked up from
+**Actual Risk Classification**, looked up from
 `Asset Classification × Reported Risk Rating × Exploit Available` using the
 60-row matrix (the same logic as your original `XLOOKUP`, re-expressed as
 `INDEX/MATCH` so it's reliable in Excel *and* LibreOffice).
 
-**Target Fix Date** — `Detection Date + SLA`:
+**Target Fix Date**, `Detection Date + SLA`:
 
 | Actual Risk | SLA |
 |---|---|
@@ -231,19 +231,19 @@ agree to the day.
 | Low | +120 days |
 | Information | none (discretionary) |
 
-**Time to Fix (Days)** — the SLA window (`Target Fix Date − Detection Date`).
+**Time to Fix (Days)**, the SLA window (`Target Fix Date − Detection Date`).
 
-**Actual Fix Date** — auto-stamped the day a finding is set to *Fixed* or
+**Actual Fix Date**, auto-stamped the day a finding is set to *Fixed* or
 *Not Applicable*; remains editable (set it to the real date if it was fixed
 earlier).
 
-**Risk Tolerance Objective** —
+**Risk Tolerance Objective**,
 *Met* if the Actual Fix Date is on/before the effective target (the Revised
 Target Fix Date when an exception was approved, otherwise the Target Fix Date);
 *Breached* if later; *Not Applicable* when the status is *Not Applicable*,
 *Risk Accepted*, or *Exception Approved*.
 
-**Remediation statuses** — Pending, Reported, In progress, On hold, Testing,
+**Remediation statuses**, Pending, Reported, In progress, On hold, Testing,
 Fixed, Not Applicable, Risk Accepted, Exception Approved.
 
 ---
@@ -267,7 +267,7 @@ Exception Approved By · Revised Target Fix Date · Asset Owner's Comment · Com
 |---|---|
 | `app.py` | Flask application (routes, DB, serving) |
 | `auth.py` | User accounts, roles, password hashing, sessions, permissions |
-| `engine.py` | Risk matrix, fix-window and risk-tolerance logic — the single source of truth |
+| `engine.py` | Risk matrix, fix-window and risk-tolerance logic, the single source of truth |
 | `scanner.py` | Built-in offline vulnerability scanner |
 | `vuln_db.py` | Local CVE / EOL dataset and matcher |
 | `parsers/` | Nessus, OpenVAS and Nmap importers |

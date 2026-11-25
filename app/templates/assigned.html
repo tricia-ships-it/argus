@@ -26,12 +26,12 @@
   <tbody>
   {% for r in findings %}
   <tr>
-    <td class="mono nowrap">{{ r.ip_hostname or '—' }}</td>
+    <td class="mono nowrap">{{ r.ip_hostname or '-' }}</td>
     <td>{{ r.vulnerability }}</td>
-    <td class="nowrap mono">{% if r.cvss_score_disp %}<span class="risk {{ r.cvss_severity }}">{{ r.cvss_score_disp }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td class="nowrap mono">{% if r.cvss_score_disp %}<span class="risk {{ r.cvss_severity }}">{{ r.cvss_score_disp }}</span>{% else %}<span class="muted">-</span>{% endif %}</td>
     <td class="nowrap">{% if r.actual_risk_classification %}<span class="risk {{ r.actual_risk_classification }}">{{ r.actual_risk_classification }}</span>{% endif %}</td>
-    <td class="nowrap">{{ r.remediation_status or '—' }}</td>
-    <td class="nowrap mono">{{ r.target_fix_date or '—' }}</td>
+    <td class="nowrap">{{ r.remediation_status or '-' }}</td>
+    <td class="nowrap mono">{{ r.target_fix_date or '-' }}</td>
     <td class="nowrap"><a class="btn sm primary" href="{{ url_for('finding_edit', fid=r.id) }}">Update</a></td>
   </tr>
   {% endfor %}

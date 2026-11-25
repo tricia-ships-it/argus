@@ -1,5 +1,5 @@
 """
-compliance.py — map findings to control frameworks.
+compliance.py, map findings to control frameworks.
 
 An informational overlay: it relates each finding, by the nature of the weakness,
 to the control(s) that address it in each framework the user has enabled, so an
@@ -15,7 +15,7 @@ import re
 # --- the catalogue of selectable frameworks --------------------------------
 FRAMEWORKS = [
     {"id": "iso27001", "name": "ISO/IEC 27001:2022 (ISMS)",
-     "desc": "Annex A controls — the information-security management standard."},
+     "desc": "Annex A controls, the information-security management standard."},
     {"id": "pci", "name": "PCI DSS v4.0",
      "desc": "Payment Card Industry Data Security Standard requirements."},
     {"id": "nistcsf", "name": "NIST CSF 2.0",
@@ -38,7 +38,7 @@ DEFAULT_ENABLED = ["iso27001", "pci"]
 # Each category: a regex over the finding text and the control(s) it implies in
 # every framework. Control IDs are the public identifiers from each standard.
 CATEGORIES = [
-    {   # cryptography in transit — TLS, ciphers, certificates
+    {   # cryptography in transit, TLS, ciphers, certificates
         "pattern": r"\b(tls|ssl|cipher|certificate|cert|forward secrecy|https|openssl)\b",
         "controls": {
             "iso27001": [("8.24", "Use of cryptography")],

@@ -8,7 +8,7 @@
   <div>
     <b>{{ unhealthy|length }} threat source{{ 's' if unhealthy|length != 1 }} need attention.</b>
     <ul class="nb-list">
-      {% for u in unhealthy %}<li><b>{{ u.name }}</b> — {{ u.detail or 'last fetch failed' }}{% if u.checked_at %} <span class="muted">({{ u.checked_at[:16].replace('T',' ') }})</span>{% endif %}</li>{% endfor %}
+      {% for u in unhealthy %}<li><b>{{ u.name }}</b>, {{ u.detail or 'last fetch failed' }}{% if u.checked_at %} <span class="muted">({{ u.checked_at[:16].replace('T',' ') }})</span>{% endif %}</li>{% endfor %}
     </ul>
     <a href="{{ url_for('settings_page', section='feeds') }}">Review feed sources →</a>
   </div>
@@ -18,7 +18,7 @@
 <div class="page-head">
   <div>
     <h1>Threat intelligence</h1>
-    <p class="lede">Public vulnerability feeds matched against your findings and asset inventory — locally. Actively-exploited (CISA KEV) issues that touch your estate are raised first.</p>
+    <p class="lede">Public vulnerability feeds matched against your findings and asset inventory, locally. Actively-exploited (CISA KEV) issues that touch your estate are raised first.</p>
   </div>
   <div class="head-actions">
     <a class="btn ghost" href="{{ url_for('settings_page', section='feeds') }}">Feed settings</a>
@@ -28,7 +28,7 @@
 {% if not feed_count %}
 <div class="empty">
   <h3>No threat feed loaded yet</h3>
-  <p>Load a feed to start matching. Either enable online updates in <a href="{{ url_for('settings_page', section='feeds') }}">Settings</a> and run an update, or import a feed file produced by <span class="mono">feedsync.py</span> on a connected machine. Matching happens entirely on this box — nothing about your assets is sent anywhere.</p>
+  <p>Load a feed to start matching. Either enable online updates in <a href="{{ url_for('settings_page', section='feeds') }}">Settings</a> and run an update, or import a feed file produced by <span class="mono">feedsync.py</span> on a connected machine. Matching happens entirely on this box, nothing about your assets is sent anywhere.</p>
   <a class="btn primary" href="{{ url_for('settings_page', section='feeds') }}">Go to feed settings</a>
 </div>
 {% else %}
@@ -39,7 +39,7 @@
 </div>
 
 {% if not alerts %}
-<div class="note">Good news — none of the {{ feed_count }} feed records currently match your findings or asset inventory. Re-check after your next scan or feed update.</div>
+<div class="note">Good news, none of the {{ feed_count }} feed records currently match your findings or asset inventory. Re-check after your next scan or feed update.</div>
 {% else %}
 <div class="alert-list">
   {% for a in alerts %}
@@ -47,7 +47,7 @@
     <div class="alert-top">
       <div class="alert-id">
         {% if a.kev %}<span class="kev-badge">⚠ Actively exploited</span>{% endif %}
-        <span class="mono cve">{{ a.cve or '—' }}</span>
+        <span class="mono cve">{{ a.cve or '-' }}</span>
         <span class="risk {{ a.severity or 'Medium' }} sm">{{ a.severity }}</span>
         <span class="muted src">{{ a.source }}</span>
       </div>

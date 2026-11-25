@@ -52,7 +52,7 @@
       <th title="Short name of the security weakness that was found">Vulnerability</th>
       <th title="Plain-language explanation of what the vulnerability is and why it matters">Definition</th>
       <th title="The public CVE identifier for this vulnerability, where one exists">CVE</th>
-      <th title="CVSS v3.1 base score (0.0–10.0), where one is known for this finding">CVSS</th>
+      <th title="CVSS v3.1 base score (0.0-10.0), where one is known for this finding">CVSS</th>
       <th title="Severity as rated by the scanner or assessor, before asset context is applied">Reported Risk Rating</th>
       <th title="Whether a public exploit is known to exist for this vulnerability">Exploit Available</th>
       <th title="Final risk after combining reported severity, asset criticality and exploit availability">Actual Risk Classification</th>
@@ -61,7 +61,7 @@
       <th title="Number of days allowed to remediate, based on the risk band">Time to Fix (Days)</th>
       <th title="Current state of the fix (Pending, In progress, Fixed, Risk Accepted, etc.)">Remediation Status</th>
       <th title="The date the vulnerability was actually remediated (auto-stamped when marked Fixed)">Actual Fix Date</th>
-      <th title="Whether the fix met its target date — Met, Breached, or Not Applicable">Risk Tolerance Objective</th>
+      <th title="Whether the fix met its target date, Met, Breached, or Not Applicable">Risk Tolerance Objective</th>
       <th title="Recommended steps to remediate the finding">Solution</th>
       <th title="The team or person responsible for remediating this finding">Asset Owner</th>
       <th title="Whether a risk exception has been requested, with any revised target date">Exception</th>
@@ -77,14 +77,14 @@
       <td class="vuln">{{ r.vulnerability }}
         {% if r.synopsis %}<div class="muted" style="font-weight:400;font-size:11.5px;margin-top:3px">{{ r.synopsis|truncate(110) }}</div>{% endif %}
       </td>
-      <td class="defn">{% if r.definition %}<span class="muted" style="font-size:11.5px">{{ r.definition|truncate(170) }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="cve">{{ r.cve or '—' }}</td>
-      <td class="nowrap mono">{% if r.cvss_score_disp %}<span class="risk {{ r.cvss_severity }}" title="{{ r.cvss_severity }}{% if r.cvss_vector %} · {{ r.cvss_vector }}{% endif %}">{{ r.cvss_score_disp }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="defn">{% if r.definition %}<span class="muted" style="font-size:11.5px">{{ r.definition|truncate(170) }}</span>{% else %}<span class="muted">-</span>{% endif %}</td>
+      <td class="cve">{{ r.cve or '-' }}</td>
+      <td class="nowrap mono">{% if r.cvss_score_disp %}<span class="risk {{ r.cvss_severity }}" title="{{ r.cvss_severity }}{% if r.cvss_vector %} · {{ r.cvss_vector }}{% endif %}">{{ r.cvss_score_disp }}</span>{% else %}<span class="muted">-</span>{% endif %}</td>
       <td class="nowrap">{% if r.reported_risk %}<span class="risk {{ r.reported_risk }}">{{ r.reported_risk }}</span>{% endif %}</td>
       <td class="mono nowrap">{{ r.exploit_available }}</td>
-      <td class="nowrap"><span class="risk {{ r.actual_risk_classification }}" data-field="actual_risk">{{ r.actual_risk_classification or '—' }}</span></td>
+      <td class="nowrap"><span class="risk {{ r.actual_risk_classification }}" data-field="actual_risk">{{ r.actual_risk_classification or '-' }}</span></td>
       <td class="mono nowrap">{{ r.detection_date_disp }}</td>
-      <td class="mono nowrap" data-field="target_fix">{{ r.target_fix_date or '—' }}</td>
+      <td class="mono nowrap" data-field="target_fix">{{ r.target_fix_date or '-' }}</td>
       <td class="mono">{{ r.time_to_fix_days }}</td>
       <td>
         {% if r.can_edit %}
@@ -98,12 +98,12 @@
           <span class="overdue-flag">past due</span>
         {% endif %}
       </td>
-      <td class="mono nowrap" data-field="actual_fix">{{ r.actual_fix_date_disp or '—' }}</td>
-      <td class="nowrap"><span class="rto {{ 'NA' if r.risk_tolerance_objective=='Not Applicable' else r.risk_tolerance_objective }}" data-field="rto">{{ r.risk_tolerance_objective or '—' }}</span></td>
-      <td>{% if r.solution %}<span class="muted" style="font-size:11.5px">{{ r.solution|truncate(90) }}</span>{% else %}—{% endif %}</td>
-      <td class="nowrap">{{ r.asset_owner or '—' }}</td>
+      <td class="mono nowrap" data-field="actual_fix">{{ r.actual_fix_date_disp or '-' }}</td>
+      <td class="nowrap"><span class="rto {{ 'NA' if r.risk_tolerance_objective=='Not Applicable' else r.risk_tolerance_objective }}" data-field="rto">{{ r.risk_tolerance_objective or '-' }}</span></td>
+      <td>{% if r.solution %}<span class="muted" style="font-size:11.5px">{{ r.solution|truncate(90) }}</span>{% else %}-{% endif %}</td>
+      <td class="nowrap">{{ r.asset_owner or '-' }}</td>
       <td class="nowrap">{% if r.exception_requested == 'Yes' %}<span class="risk Medium">Requested</span>{% if r.revised_target_fix_date_disp %}<div class="muted mono" style="font-size:10.5px;margin-top:3px">→ {{ r.revised_target_fix_date_disp }}</div>{% endif %}{% else %}<span class="muted">No</span>{% endif %}</td>
-      <td>{% if r.comment %}<span class="muted" style="font-size:11.5px">{{ r.comment|truncate(70) }}</span>{% else %}—{% endif %}</td>
+      <td>{% if r.comment %}<span class="muted" style="font-size:11.5px">{{ r.comment|truncate(70) }}</span>{% else %}-{% endif %}</td>
       <td class="nowrap"><a class="btn sm ghost" href="{{ url_for('finding_detail', fid=r.id) }}">Open</a></td>
     </tr>
     {% endfor %}
@@ -136,10 +136,10 @@ document.querySelectorAll('select.statussel').forEach(sel => {
     const data = await res.json();
     if (data.ok) {
       const af = row.querySelector('[data-field=actual_fix]');
-      if (af) af.textContent = data.actual_fix_date || '—';
+      if (af) af.textContent = data.actual_fix_date || '-';
       const rto = row.querySelector('[data-field=rto]');
       if (rto) {
-        rto.textContent = data.risk_tolerance_objective || '—';
+        rto.textContent = data.risk_tolerance_objective || '-';
         rto.className = 'rto ' + (data.risk_tolerance_objective === 'Not Applicable' ? 'NA' : data.risk_tolerance_objective);
       }
     }

@@ -11,7 +11,7 @@ background worker thread that:
   * paces itself to rate_per_min (default 30/min) so the provider stays happy,
   * commits progress after every message, so the UI can show a live bar and a
     crash leaves an exactly-resumable job,
-  * resumes rather than duplicates — a recipient with sent_at already set is
+  * resumes rather than duplicates, a recipient with sent_at already set is
     skipped, so re-running a job never double-sends,
   * supports scheduling (send at a chosen time) and cancellation,
   * re-checks the campaign gates (Active + authorised) before it sends a thing.
@@ -75,7 +75,7 @@ def campaign_groups(db, campaign_id):
     """Distinct groups present in a campaign, with counts (ungrouped last)."""
     rows = db.execute(
         "SELECT COALESCE(grp,'') g, COUNT(*) n FROM phish_recipient "
-        "WHERE campaign_id=? GROUP BY COALESCE(grp,'') ORDER BY g=='' , g",
+        "WHERE campaign_id=? GROUP BY COALESCE(grp,'') ORDER BY g=='', g",
         (campaign_id,)).fetchall()
     return [{"name": r["g"], "count": r["n"]} for r in rows]
 
@@ -155,7 +155,7 @@ def process_job(db_path, job_id, providers=None, sleep=time.sleep):
             return
         cam = c.execute("SELECT * FROM phish_campaign WHERE id=?",
                         (job["campaign_id"],)).fetchone()
-        # re-check the gates at run time — never send for a campaign that was
+        # re-check the gates at run time, never send for a campaign that was
         # closed or de-authorised after the job was queued.
         if not cam or cam["status"] != "Active" or not cam["authorized"]:
             c.execute("UPDATE phish_send_job SET status='failed', last_error=?, "

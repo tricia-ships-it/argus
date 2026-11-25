@@ -1,5 +1,5 @@
 """
-export_pdf.py — build a PDF of the VAPT report.
+export_pdf.py, build a PDF of the VAPT report.
 
 Uses reportlab if present. If reportlab is not installed on the offline host,
 falls back to returning a self-contained printable HTML document (the browser's
@@ -129,7 +129,7 @@ def _build_html(rows, stats):
 <h1>Quarterly VAPT Assessment Report</h1>
 <div class="sub">Generated {date.today().strftime('%B %d, %Y')} ·
  {stats['total']} findings · {stats['critical']} Critical, {stats['high']} High ·
- {stats['breached']} risk-tolerance breaches &nbsp;—&nbsp; <em>Use your browser's Print → Save as PDF.</em></div>
+ {stats['breached']} risk-tolerance breaches &nbsp;-&nbsp; <em>Use your browser's Print → Save as PDF.</em></div>
 <table><thead><tr>
  <th>IP / Host</th><th>Vulnerability</th><th>CVE</th><th>CVSS</th><th>Actual Risk</th>
  <th>Detected</th><th>Target Fix</th><th>Status</th><th>Risk Tolerance</th><th>Owner</th>

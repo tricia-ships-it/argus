@@ -1,5 +1,5 @@
 """
-vuln_db.py — a LOCAL, offline vulnerability dataset for version->CVE matching.
+vuln_db.py, a LOCAL, offline vulnerability dataset for version->CVE matching.
 
 Why local: the whole tool runs air-gapped, so it cannot query the NVD or any
 online feed at scan time. This module ships a curated starter set of well-known,
@@ -10,7 +10,7 @@ guesses.
 
 HOW TO KEEP IT CURRENT (important, and documented in the README):
   This is NOT a substitute for a maintained feed. For authoritative, always-
-  current coverage, run Nessus/OpenVAS and import their results — those carry
+  current coverage, run Nessus/OpenVAS and import their results, those carry
   tens of thousands of maintained checks. This dataset covers the common,
   high-impact cases so the built-in scanner is useful on its own and offline.
   Extend it by adding entries to VERSION_RULES / EOL_RULES below, or load an
@@ -92,9 +92,9 @@ VERSION_RULES = [
     {
         "product": "openssh",
         "lo": "0", "hi_inclusive": "9.7",
-        "lo_floor": "8.5",  # introduced in 8.5p1
+        "lo_floor": "8.5", # introduced in 8.5p1
         "cve": "CVE-2024-6387",
-        "title": "regreSSHion — unauthenticated RCE (CVE-2024-6387)",
+        "title": "regreSSHion, unauthenticated RCE (CVE-2024-6387)",
         "synopsis": "This OpenSSH version may be affected by the regreSSHion signal-handler race (CVE-2024-6387).",
         "definition": "A race condition in OpenSSH's signal handling (sshd) on glibc-based Linux can allow "
                       "unauthenticated remote code execution. Affects sshd from 8.5p1 up to before 9.8p1.",
@@ -179,7 +179,7 @@ VERSION_RULES = [
         "product": "tomcat",
         "lo": "0", "hi_exclusive": "9.0.31",
         "cve": "CVE-2020-1938",
-        "title": "Ghostcat — Tomcat AJP file read / RCE (CVE-2020-1938)",
+        "title": "Ghostcat, Tomcat AJP file read / RCE (CVE-2020-1938)",
         "synopsis": "Apache Tomcat with an exposed AJP connector may disclose files or allow code execution.",
         "definition": "When the AJP connector (default port 8009) is reachable, a flaw in Tomcat before 9.0.31 "
                       "(and older 7.x/8.x) allows reading files inside the web root and, where uploads are "
@@ -256,7 +256,7 @@ def match_cves(product, version):
     for rule in EOL_RULES:
         if rule["product"] in p and version and vlt(version, rule["below"]):
             out.append({
-                "cve": "N/A — EOL/lifecycle",
+                "cve": "N/A, EOL/lifecycle",
                 "title": f"End-of-Life: {rule['label']}",
                 "synopsis": f"{product} {version} appears to be on an end-of-life branch.",
                 "definition": rule["note"],

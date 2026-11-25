@@ -34,8 +34,8 @@
     {% if f.exception_requested == 'Yes' %}
     <div class="card excep">
       <h3>Exception</h3>
-      <div class="kv"><span>Approved by</span><b>{{ f.exception_approved_by or '—' }}</b></div>
-      <div class="kv"><span>Revised target</span><b class="mono">{{ f.revised_target_fix_date_disp or '—' }}</b></div>
+      <div class="kv"><span>Approved by</span><b>{{ f.exception_approved_by or '-' }}</b></div>
+      <div class="kv"><span>Revised target</span><b class="mono">{{ f.revised_target_fix_date_disp or '-' }}</b></div>
       {% if f.asset_owners_comment %}<p class="muted">{{ f.asset_owners_comment }}</p>{% endif %}
     </div>
     {% endif %}
@@ -47,7 +47,7 @@
         {% for e in evidence %}
         <li>
           <a class="ev-name" href="{{ url_for('evidence_download', eid=e.id) }}">{{ e.filename }}</a>
-          <span class="ev-meta mono">{{ (e.size / 1024)|round(1) }} KB · {{ e.display_name or e.username or '—' }} · {{ e.created_at[:16]|replace('T',' ') }}</span>
+          <span class="ev-meta mono">{{ (e.size / 1024)|round(1) }} KB · {{ e.display_name or e.username or '-' }} · {{ e.created_at[:16]|replace('T',' ') }}</span>
           {% if f.can_edit %}
           <form method="post" action="{{ url_for('evidence_delete', eid=e.id) }}" onsubmit="return confirm('Remove this evidence?')" class="ev-del">
             <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -98,10 +98,10 @@
         {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if f.remediation_status==s }}>{{ s }}</option>{% endfor %}
       </select>
       {% else %}<div class="mono">{{ f.remediation_status }}</div>{% endif %}
-      <div class="kv"><span>Detection date</span><b class="mono">{{ f.detection_date_disp or '—' }}</b></div>
-      <div class="kv"><span>Target fix date</span><b class="mono" id="target_fix">{{ f.target_fix_date or '—' }}</b></div>
+      <div class="kv"><span>Detection date</span><b class="mono">{{ f.detection_date_disp or '-' }}</b></div>
+      <div class="kv"><span>Target fix date</span><b class="mono" id="target_fix">{{ f.target_fix_date or '-' }}</b></div>
       <div class="kv"><span>Time to fix</span><b class="mono">{{ f.time_to_fix_days }}{% if f.time_to_fix_days != '' %} days{% endif %}</b></div>
-      <div class="kv"><span>Actual fix date</span><b class="mono" id="actual_fix">{{ f.actual_fix_date_disp or '—' }}</b></div>
+      <div class="kv"><span>Actual fix date</span><b class="mono" id="actual_fix">{{ f.actual_fix_date_disp or '-' }}</b></div>
       <div class="kv"><span>Owner</span><b>{{ f.asset_owner or 'Unassigned' }}</b></div>
     </div>
     <div class="card">
@@ -145,8 +145,8 @@ if (sel) sel.addEventListener('change', async () => {
   if (res.status === 403) { window.toast && window.toast("You can't change this finding.", {type:'err'}); return; }
   const d = await res.json();
   if (d.ok) {
-    document.getElementById('actual_fix').textContent = d.actual_fix_date || '—';
-    document.getElementById('target_fix').textContent = d.target_fix_date || '—';
+    document.getElementById('actual_fix').textContent = d.actual_fix_date || '-';
+    document.getElementById('target_fix').textContent = d.target_fix_date || '-';
     window.toast && window.toast("Status updated to " + sel.value, {type:'ok', title:'Saved'});
   }
 });

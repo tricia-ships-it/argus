@@ -9,7 +9,7 @@
 <p class="lede">Showing just this section. <a href="{{ url_for('settings_page') }}">See all settings →</a></p>
 {% else %}
 <h1>Settings</h1>
-<p class="lede">Threat feeds, compliance frameworks and phishing delivery. The app is offline by default — nothing contacts the internet unless you turn it on here.</p>
+<p class="lede">Threat feeds, compliance frameworks and phishing delivery. The app is offline by default, nothing contacts the internet unless you turn it on here.</p>
 {% endif %}
 
 {% if unhealthy and section in ['', 'feeds'] %}
@@ -18,7 +18,7 @@
   <div>
     <b>{{ unhealthy|length }} threat source{{ 's' if unhealthy|length != 1 }} failed on the last update.</b>
     <ul class="nb-list">
-      {% for u in unhealthy %}<li><b>{{ u.name }}</b> — {{ u.detail or 'last fetch failed' }}</li>{% endfor %}
+      {% for u in unhealthy %}<li><b>{{ u.name }}</b>, {{ u.detail or 'last fetch failed' }}</li>{% endfor %}
     </ul>
   </div>
 </div>
@@ -32,7 +32,7 @@
       <p class="card-sub">A name for this Argus deployment, shown on dashboard snapshots you export so recipients know whose posture they're looking at.</p>
       <form method="post" action="{{ url_for('settings_instance') }}" class="inline" style="gap:10px;align-items:center">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-        <input type="text" name="instance_label" value="{{ instance_label }}" placeholder="e.g. PAIX Data Centres — Accra" style="max-width:360px">
+        <input type="text" name="instance_label" value="{{ instance_label }}" placeholder="e.g. PAIX Data Centres, Accra" style="max-width:360px">
         <button class="btn primary" type="submit">Save</button>
       </form>
     </div>
@@ -41,7 +41,7 @@
     {% if section in ['', 'zoho'] %}
     <div class="card">
       <h3>Zoho Creator inventory sync</h3>
-      <div class="secnote"><b>Heads up — this reaches the internet.</b> Argus is offline by default, but this feature pulls your asset inventory from Zoho Creator's cloud API. It is <b>read-only</b> (Argus never writes back to Zoho), host-pinned to Zoho, and the OAuth secrets are read from the <b>server environment</b>, never stored here.</div>
+      <div class="secnote"><b>Heads up, this reaches the internet.</b> Argus is offline by default, but this feature pulls your asset inventory from Zoho Creator's cloud API. It is <b>read-only</b> (Argus never writes back to Zoho), host-pinned to Zoho, and the OAuth secrets are read from the <b>server environment</b>, never stored here.</div>
       <div class="prov-row"><span class="src-name">Credentials (environment)</span>
         {% if zoho_secrets_ok %}<span class="risk Low sm">configured</span>{% else %}<span class="muted">not set</span>{% endif %}
       </div>
@@ -64,7 +64,7 @@ ARGUS_ZOHO_REFRESH_TOKEN=1000...  # from a Zoho self-client, scope ZohoCreator.r
           <div class="field"><label>App link name</label><input name="zoho_app" value="{{ zoho_conn.app }}" placeholder="e.g. asset-management"></div>
           <div class="field"><label>Report link name</label><input name="zoho_report" value="{{ zoho_conn.report }}" placeholder="e.g. All_Assets"></div>
         </div>
-        <label class="lbl" style="margin-top:4px">Field mapping — which Zoho field holds each asset detail (field link names):</label>
+        <label class="lbl" style="margin-top:4px">Field mapping, which Zoho field holds each asset detail (field link names):</label>
         <div class="grid-2">
           {% for key, label in zoho_fields %}
           <div class="field"><label>{{ label }}</label><input name="map_{{ key }}" value="{{ zoho_mapping[key] }}" placeholder="Zoho field name"></div>
@@ -81,7 +81,7 @@ ARGUS_ZOHO_REFRESH_TOKEN=1000...  # from a Zoho self-client, scope ZohoCreator.r
       <h3>Threat-feed updates</h3>
       <div class="secnote">
         <b>How this stays safe:</b> updates only ever <b>download</b> public vulnerability feeds.
-        Your asset inventory never leaves this machine — the fetcher can only perform an HTTP
+        Your asset inventory never leaves this machine, the fetcher can only perform an HTTP
         <b>GET</b> to a URL on the list below, and has no way to send your data. Matching runs
         entirely locally.
       </div>
@@ -94,7 +94,7 @@ ARGUS_ZOHO_REFRESH_TOKEN=1000...  # from a Zoho self-client, scope ZohoCreator.r
             <span class="muted">When off (the default), the app makes no outbound connections. Turn on only if this machine is allowed to reach the internet.</span></span>
         </label>
 
-        <div class="allow-head">Allowed sources — the complete list of endpoints the app may contact. Untick to disable one; add your own trusted feeds below.</div>
+        <div class="allow-head">Allowed sources, the complete list of endpoints the app may contact. Untick to disable one; add your own trusted feeds below.</div>
         {% for s in sources %}
         <label class="src-row">
           <input type="checkbox" name="src_{{ s.id }}" {{ 'checked' if s.checked }}>
@@ -114,7 +114,7 @@ ARGUS_ZOHO_REFRESH_TOKEN=1000...  # from a Zoho self-client, scope ZohoCreator.r
         {% endfor %}
 
         <label class="field">
-          <span class="muted">Egress proxy (optional) — route the download through your own proxy instead of connecting directly.</span>
+          <span class="muted">Egress proxy (optional), route the download through your own proxy instead of connecting directly.</span>
           <input type="text" name="ti_proxy" value="{{ ti_proxy }}" placeholder="http://proxy.internal:3128">
         </label>
 
@@ -132,7 +132,7 @@ ARGUS_ZOHO_REFRESH_TOKEN=1000...  # from a Zoho self-client, scope ZohoCreator.r
         <summary>+ Add a trusted source</summary>
         <form method="post" action="{{ url_for('settings_source_add') }}" class="stack" style="margin-top:12px">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <p class="card-sub">Only public <b>https</b> feeds are accepted — Argus validates that the host is on the public internet, never an address inside your own network, and only ever fetches (GET), never sends.</p>
+          <p class="card-sub">Only public <b>https</b> feeds are accepted, Argus validates that the host is on the public internet, never an address inside your own network, and only ever fetches (GET), never sends.</p>
           <div class="field"><label>Name</label><input type="text" name="name" placeholder="e.g. Vendor PSIRT advisories"></div>
           <div class="field"><label>Feed URL (https)</label><input type="text" name="url" placeholder="https://example.org/feed.json"></div>
           <div class="field"><label>Format</label>
@@ -169,7 +169,7 @@ ARGUS_ZOHO_REFRESH_TOKEN=1000...  # from a Zoho self-client, scope ZohoCreator.r
     {% if section in ['', 'delivery'] %}
     <div class="card">
       <h3>Phishing delivery providers</h3>
-      <p class="card-sub">For automated phishing-awareness sends. Argus reads provider credentials from the <b>server environment only</b> — never through this page — so secrets stay out of the database and its backups. Set the variables below on the host, then restart Argus.</p>
+      <p class="card-sub">For automated phishing-awareness sends. Argus reads provider credentials from the <b>server environment only</b>, never through this page, so secrets stay out of the database and its backups. Set the variables below on the host, then restart Argus.</p>
       <div class="prov-row">
         <span class="src-name">Email (SMTP)</span>
         {% if delivery_status.email %}<span class="risk Low sm">configured</span>{% else %}<span class="muted">not set</span>{% endif %}
@@ -193,7 +193,7 @@ ARGUS_SMTP_FROM_NAME=IT Service Desk</pre>
 ARGUS_TWILIO_TOKEN=••••••
 ARGUS_TWILIO_FROM=+1XXXXXXXXXX        # SMS sender
 ARGUS_TWILIO_WA_FROM=+1XXXXXXXXXX     # WhatsApp sender</pre>
-      <p class="card-sub">WhatsApp only delivers Meta-approved templates, so lure content is usually rejected — treat it as best-effort. Voice and social channels are not auto-sent.</p>
+      <p class="card-sub">WhatsApp only delivers Meta-approved templates, so lure content is usually rejected, treat it as best-effort. Voice and social channels are not auto-sent.</p>
     </div>
     {% endif %}
   </div>

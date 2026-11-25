@@ -11,7 +11,7 @@
   <div class="login-wrap">
     <div class="login-card">
       <div class="login-brand"><img src="{{ url_for('static', filename='argus-icon.svg') }}" alt="" width="40" height="40"> Argus</div>
-      <div class="login-sub">Welcome. Create your administrator account to get started — you'll use this to sign in and to add your team.</div>
+      <div class="login-sub">Welcome. Create your administrator account to get started, you'll use this to sign in and to add your team.</div>
       {% with messages = get_flashed_messages() %}
         {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
       {% endwith %}
@@ -39,7 +39,7 @@
         </div>
         <button class="btn primary" type="submit" style="width:100%;justify-content:center">Create administrator account</button>
       </form>
-      <p class="note" style="margin-top:18px">At least 8 characters. You can add teammates afterwards under <b>Users</b> — each one sets their own password the first time they sign in.</p>
+      <p class="note" style="margin-top:18px">At least 8 characters. You can add teammates afterwards under <b>Users</b>, each one sets their own password the first time they sign in.</p>
     </div>
   </div>
 </body>

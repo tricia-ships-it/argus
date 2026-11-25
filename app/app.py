@@ -1,5 +1,5 @@
 """
-VAPT Assessment & Remediation Tracker — offline Flask application.
+VAPT Assessment & Remediation Tracker, offline Flask application.
 
 Runs entirely on the internal network. No internet calls, no telemetry, no outbound data.
 Data lives in a local SQLite file (vapt.db) next to this script.
@@ -58,12 +58,12 @@ auth.register_db_getter(lambda: get_db())
 # --- session cookie hardening -------------------------------------------------
 # HttpOnly keeps the cookie out of JS; SameSite=Lax blocks it on cross-site POSTs
 # (a strong CSRF mitigation on its own); Secure is enabled when serving over
-# HTTPS — set VAPT_HTTPS=1 behind a TLS reverse proxy.
+# HTTPS, set VAPT_HTTPS=1 behind a TLS reverse proxy.
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.environ.get("VAPT_HTTPS", "") in ("1", "true", "yes"),
-    MAX_CONTENT_LENGTH=64 * 1024 * 1024,  # cap uploads at 64 MB
+    MAX_CONTENT_LENGTH=64 * 1024 * 1024, # cap uploads at 64 MB
 )
 
 import secrets as _secrets
@@ -109,7 +109,7 @@ def _require_first_run_setup():
 
 @app.after_request
 def _security_headers(resp):
-    # The same headers the scanner flags when missing on a host — set them here.
+    # The same headers the scanner flags when missing on a host, set them here.
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("Referrer-Policy", "no-referrer")
@@ -333,7 +333,7 @@ def init_db():
         for n in ["Network Team", "Systems Team", "Security Team", "Unassigned"]:
             db.execute("INSERT OR IGNORE INTO asset_owners(name) VALUES (?)", (n,))
     db.commit()
-    # auth tables — the first administrator is created via first-run web setup
+    # auth tables, the first administrator is created via first-run web setup
     auth.init_auth_schema(db)
     setup_needed = auth.needs_setup(db)
     db.close()
@@ -428,7 +428,7 @@ def owner_list():
 
 def owner_directory():
     """Owners with their kind and (for user-owners) the linked user, and member
-    counts for teams — for the owners management page and pickers."""
+    counts for teams, for the owners management page and pickers."""
     db = get_db()
     rows = db.execute(
         "SELECT o.*, u.display_name AS u_name, u.username AS u_username, u.email AS u_email, "
@@ -446,7 +446,7 @@ def _flash_assignment(r, owner_name):
     if r.get("emailed"):
         bits.append(f"{r['emailed']} email{'' if r['emailed'] == 1 else 's'} sent")
     if r.get("errors"):
-        bits.append(f"{len(r['errors'])} email(s) couldn't send — check mail settings")
+        bits.append(f"{len(r['errors'])} email(s) couldn't send, check mail settings")
     flash(" · ".join(bits) + ".")
 
 
@@ -498,7 +498,7 @@ def setup():
         u = auth.get_user(db, uid)
         auth.login_user(u)
         auth.log_activity(db, uid, None, "setup", "First-run administrator account created")
-        flash("Welcome to Argus — your administrator account is ready.")
+        flash("Welcome to Argus, your administrator account is ready.")
         return redirect(url_for("index"))
     return render_template("setup.html", form={})
 
@@ -606,7 +606,7 @@ def users_delete(uid):
     target = db.execute("SELECT username, role FROM users WHERE id=?", (uid,)).fetchone()
     if not target:
         abort(404)
-    # never remove the last admin — the system must keep at least one
+    # never remove the last admin, the system must keep at least one
     if target["role"] == "admin":
         n_admin = db.execute("SELECT COUNT(*) n FROM users WHERE role='admin' AND active=1").fetchone()["n"]
         if n_admin <= 1:
@@ -772,7 +772,7 @@ def dashboard_share():
     db = get_db()
     me = auth.current_user(db)
     source = get_setting(db, "instance_label", "") or "Argus instance"
-    title = (request.args.get("title") or f"{source} — dashboard").strip()[:160]
+    title = (request.args.get("title") or f"{source}, dashboard").strip()[:160]
     js = snapshots.build(_dashboard_aggregates(db), title, source,
                          me["username"], APP_VERSION,
                          datetime.now().isoformat(timespec="seconds"))
@@ -806,7 +806,7 @@ def shared_import():
     try:
         snap = snapshots.parse(raw)
     except snapshots.SnapshotError as e:
-        flash(f"Couldn't open that snapshot — {e}")
+        flash(f"Couldn't open that snapshot, {e}")
         return redirect(url_for("shared_list"))
     cur = db.execute(
         "INSERT INTO shared_snapshot(title, source, generated_at, generated_by, "
@@ -942,7 +942,7 @@ def _dashboard_aggregates(db):
 
 
 def _overview_metrics(db):
-    """Cross-domain numbers for the overview dashboard — not just findings but
+    """Cross-domain numbers for the overview dashboard, not just findings but
     assets, threats, scans, phishing and recent activity."""
     agg = _dashboard_aggregates(db)
     t = agg["totals"]
@@ -1034,7 +1034,7 @@ def finding_edit(fid):
         prev_status = row["remediation_status"]
         prev_owner = (row["asset_owner"] or "").strip()
         form_data = _form_to_dict(request.form)
-        # A non-editor asset owner may update remediation progress only — not the
+        # A non-editor asset owner may update remediation progress only, not the
         # finding's classification, ownership, or the vulnerability details.
         if me["role"] not in ("admin", "editor"):
             allowed = {"remediation_status", "actual_fix_date", "exception_requested",
@@ -1149,7 +1149,7 @@ def findings_recheck_kev():
     Run this after refreshing feeds: a CVE that has since been added to the KEV
     catalogue gets flagged as actively exploited, which escalates its actual
     risk through the existing risk matrix. Existing findings aren't downgraded
-    here — this only promotes newly-exploited ones."""
+    here, this only promotes newly-exploited ones."""
     db = get_db()
     me = auth.current_user(db)
     feed_count = db.execute("SELECT COUNT(*) FROM threat_feed").fetchone()[0]
@@ -1189,7 +1189,7 @@ def findings_recheck_kev():
     return redirect(url_for("index"))
 
 
-# Inline status update (AJAX) — auto-stamps actual_fix_date when closing.
+# Inline status update (AJAX), auto-stamps actual_fix_date when closing.
 @app.route("/finding/<int:fid>/status", methods=["POST"])
 @auth.login_required
 def finding_status(fid):
@@ -1402,7 +1402,7 @@ def assets():
     rank = compliance.SEV_RANK
     hosts = {}
     for r in rows:
-        key = r["ip_hostname"] or "—"
+        key = r["ip_hostname"] or "-"
         h = hosts.setdefault(key, {
             "ip": key, "device": r.get("device") or "", "owners": set(),
             "total": 0, "open": 0, "exposed": 0, "breached": 0,
@@ -1495,7 +1495,7 @@ def _all_sources(db):
 
 
 def _effective_sources(db):
-    """Only the enabled sources — what the update loop actually fetches."""
+    """Only the enabled sources, what the update loop actually fetches."""
     return [s for s in _all_sources(db) if s["checked"]]
 
 
@@ -1510,7 +1510,7 @@ def _record_source_health(db, sid, status, detail="", records=0):
 
 
 def _unhealthy_sources(db):
-    """Enabled sources whose last fetch failed — surfaced as notifications."""
+    """Enabled sources whose last fetch failed, surfaced as notifications."""
     return [{"name": s["name"], "detail": (s["health"] or {}).get("detail", ""),
              "checked_at": (s["health"] or {}).get("checked_at", "")}
             for s in _effective_sources(db)
@@ -1595,7 +1595,7 @@ def settings_source_add():
         return redirect(url_for("settings_page"))
     ok, reason = threatintel.validate_source_url(url)
     if not ok:
-        flash(f"Source not added — {reason}")
+        flash(f"Source not added, {reason}")
         return redirect(url_for("settings_page"))
     # don't duplicate a URL already present (built-in or custom)
     existing_urls = {s["url"] for s in _all_sources(db)}
@@ -1616,7 +1616,7 @@ def settings_source_add():
         try:
             recs = threatintel.fetch_custom({"url": url, "kind": kind, "name": name}, proxy=proxy)
             _record_source_health(db, sid, "ok", f"{len(recs)} records", len(recs))
-            note = f" Reachable — {len(recs)} records on a test fetch."
+            note = f" Reachable, {len(recs)} records on a test fetch."
         except Exception as e:
             _record_source_health(db, sid, "error", str(e))
             note = f" ⚠ Added, but the test fetch failed: {e}"
@@ -1689,7 +1689,7 @@ def threatintel_update():
     db.commit()
     msg = f"Fetched {len(records)} feed records from {len(sources)} source(s)."
     if errors:
-        msg += f" ⚠ {len(errors)} source(s) had problems — see the alert on this page."
+        msg += f" ⚠ {len(errors)} source(s) had problems, see the alert on this page."
     flash(msg)
     return redirect(url_for("threatintel_view"))
 
@@ -1762,7 +1762,7 @@ def threatintel_view():
 
 # ===========================================================================
 # Phishing-awareness simulation (responsible scope)
-#   * No credential capture anywhere — the link leads to a teachable page.
+#   * No credential capture anywhere, the link leads to a teachable page.
 #   * Argus does not send mail; it mints per-recipient tracking links and the
 #     team sends them through their own authorised relay.
 #   * Tracking tokens are opaque; no PII is encoded in the URL.
@@ -1811,7 +1811,7 @@ def _classify_recipient_fields(parts):
 
 def _delivery_providers():
     """Build the send providers from environment config. A seam tests can
-    monkeypatch to inject fakes — real sending only happens on the operator's
+    monkeypatch to inject fakes, real sending only happens on the operator's
     own deployment with their own credentials."""
     return {"email": delivery.EmailProvider(), "twilio": delivery.TwilioProvider()}
 
@@ -1886,7 +1886,7 @@ def inventory_sync():
     db = get_db()
     me = auth.current_user(db)
     if not zoho.secrets_configured():
-        flash("Zoho credentials aren't set in the server environment — see Settings → Zoho sync.")
+        flash("Zoho credentials aren't set in the server environment, see Settings → Zoho sync.")
         return redirect(url_for("inventory"))
     conn = _zoho_conn(db)
     mapping = _zoho_mapping(db)
@@ -1905,7 +1905,7 @@ def inventory_sync():
         set_setting(db, "zoho_last_at", datetime.now().isoformat(timespec="seconds"))
         db.commit()
         auth.log_activity(db, me["id"], None, "inventory", f"Zoho sync failed: {str(e)[:120]}")
-        flash(f"Zoho sync failed — {e}")
+        flash(f"Zoho sync failed, {e}")
         return redirect(url_for("inventory"))
     added, upd = _upsert_assets(db, assets, "zoho")
     set_setting(db, "zoho_last_status", "ok")
@@ -1914,7 +1914,7 @@ def inventory_sync():
     db.commit()
     auth.log_activity(db, me["id"], None, "inventory",
                       f"Zoho sync: {len(assets)} assets ({added} new, {upd} updated)")
-    flash(f"Synced {len(assets)} asset(s) from Zoho — {added} new, {upd} updated.")
+    flash(f"Synced {len(assets)} asset(s) from Zoho, {added} new, {upd} updated.")
     return redirect(url_for("inventory"))
 
 
@@ -2045,7 +2045,7 @@ def phishing_recipients(cid):
     if not c:
         abort(404)
     if c["status"] == "Closed":
-        flash("This campaign is closed — reopen a new one to add recipients.")
+        flash("This campaign is closed, reopen a new one to add recipients.")
         return redirect(url_for("phishing_campaign", cid=cid))
     raw = request.form.get("recipients", "")
     grp = (request.form.get("group") or "").strip()[:60]
@@ -2192,7 +2192,7 @@ def phishing_testsend(cid):
         abort(404)
     channel = c["channel"] or "email"
     if channel in delivery.MANUAL_CHANNELS:
-        flash("This channel is manual — use the copy buttons, there is nothing to test-send.")
+        flash("This channel is manual, use the copy buttons, there is nothing to test-send.")
         return redirect(url_for("phishing_campaign", cid=cid))
     target = (request.form.get("target") or "").strip()
     if not target:
@@ -2226,7 +2226,7 @@ def phishing_send(cid):
         abort(404)
     channel = c["channel"] or "email"
     if channel in delivery.MANUAL_CHANNELS:
-        flash("This is a manual channel — copy each person's message and link by hand.")
+        flash("This is a manual channel, copy each person's message and link by hand.")
         return redirect(url_for("phishing_campaign", cid=cid))
     if c["status"] != "Active":
         flash("Launch the campaign before sending.")
@@ -2340,7 +2340,7 @@ def phish_land(token):
 @app.route("/p/<token>/reported")
 def phish_reported(token):
     """The teachable 'I would report this' acknowledgement. Idempotent,
-    records no credentials — just that the person recognised the simulation."""
+    records no credentials, just that the person recognised the simulation."""
     db = get_db()
     r = db.execute("SELECT * FROM phish_recipient WHERE token=?",
                    (token,)).fetchone()
@@ -2357,12 +2357,12 @@ def phish_reported(token):
 
 
 # ===========================================================================
-# Asset inventory register — import, classify, govern scanning
+# Asset inventory register, import, classify, govern scanning
 # ===========================================================================
 def _read_asset_rows(file):
     """Return (headers, list-of-row-lists) from an uploaded .xlsx or .csv."""
     name = (file.filename or "").lower()
-    MAX_IMPORT = 12 * 1024 * 1024  # 12 MB — asset sheets are small
+    MAX_IMPORT = 12 * 1024 * 1024  # 12 MB, asset sheets are small
     raw = file.read(MAX_IMPORT + 1)
     if len(raw) > MAX_IMPORT:
         raise ValueError("file too large (max 12 MB)")
@@ -2478,7 +2478,7 @@ def inventory_import():
         added += 1
     db.commit()
     auth.log_activity(db, me["id"], None, "inventory", f"imported {added} assets")
-    flash(f"Imported {added} assets. Review the classifications below — OT is marked do-not-scan.")
+    flash(f"Imported {added} assets. Review the classifications below, OT is marked do-not-scan.")
     return redirect(url_for("inventory"))
 
 
@@ -2569,7 +2569,7 @@ def _form_to_dict(form):
 
 
 _CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.I)
-_KEV_NOTE = ("Actively exploited in the wild — this CVE is listed in the loaded threat feed's "
+_KEV_NOTE = ("Actively exploited in the wild, this CVE is listed in the loaded threat feed's "
              "Known Exploited Vulnerabilities (KEV) catalogue. Treat as an urgent priority.")
 _FEED_NOTE = "This CVE appears in the loaded threat feed."
 
@@ -2671,7 +2671,7 @@ def import_scan():
                 rec.update({
                     "ip_hostname": fx.get("ip_hostname", ""),
                     "device": fx.get("device", ""),
-                    "asset_classification": default_class,  # analyst sets per-asset criticality
+                    "asset_classification": default_class, # analyst sets per-asset criticality
                     "vulnerability": fx.get("vulnerability", ""),
                     "synopsis": fx.get("synopsis", ""),
                     "definition": fx.get("definition", ""),
@@ -2797,7 +2797,7 @@ def scan_start():
     SCAN_JOBS[job_id] = job
 
     # Credentials for the optional authenticated audit live ONLY in this local
-    # variable for the lifetime of the run — never stored on the job dict that
+    # variable for the lifetime of the run, never stored on the job dict that
     # the status endpoint reads, never written to the database or disk.
     creds = None
     if job["authenticated"]:
@@ -2841,7 +2841,7 @@ def scan_start():
                                 password=creds["password"], key_data=creds["key_data"])
                         except cred_audit.CredAuditUnavailable as e:
                             fail += 1
-                            progress(f"{ip}: credentialed audit unavailable — {e}")
+                            progress(f"{ip}: credentialed audit unavailable, {e}")
                             continue
                         try:
                             hf = cred_audit.audit_host(ip, run_cmd)
@@ -2938,7 +2938,7 @@ def scan_commit(job_id):
 
 
 # ---------------------------------------------------------------------------
-# Scheduled scans — recurring, unattended, NETWORK-ONLY.
+# Scheduled scans, recurring, unattended, NETWORK-ONLY.
 #
 # Scheduled runs are deliberately network-only: credentialed audits need
 # credentials, which Argus never stores, so they are run interactively only.
@@ -3020,7 +3020,7 @@ def _scheduler_tick():
                 result = f"{stamp}: {res}"
             except Exception as e:
                 stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-                result = f"{stamp}: error — {e}"
+                result = f"{stamp}: error, {e}"
             hrs = max(1, int(s["interval_hours"] or 168))
             nxt = (datetime.now() + timedelta(hours=hrs)).isoformat(timespec="seconds")
             db.execute(
@@ -3132,7 +3132,7 @@ def schedule_run_now(sid):
                 res = _run_one_schedule(rdb, s)
                 result = f"{datetime.now().strftime('%Y-%m-%d %H:%M')}: {res} (manual run)"
             except Exception as e:
-                result = f"{datetime.now().strftime('%Y-%m-%d %H:%M')}: error — {e}"
+                result = f"{datetime.now().strftime('%Y-%m-%d %H:%M')}: error, {e}"
             rdb.execute("UPDATE scan_schedule SET last_run=?, last_result=? WHERE id=?",
                         (datetime.now().isoformat(timespec="seconds"), result, sid))
             rdb.commit()
@@ -3140,7 +3140,7 @@ def schedule_run_now(sid):
             rdb.close()
 
     threading.Thread(target=runner, daemon=True).start()
-    flash("Running that schedule now — its findings will appear in the register shortly.")
+    flash("Running that schedule now, its findings will appear in the register shortly.")
     return redirect(url_for("schedules"))
 
 
@@ -3155,7 +3155,7 @@ def schedule_delete(sid):
 
 
 # ---------------------------------------------------------------------------
-# Remediation report — group open findings by the fix that resolves them.
+# Remediation report, group open findings by the fix that resolves them.
 # ---------------------------------------------------------------------------
 @app.route("/remediation")
 @auth.login_required
@@ -3337,10 +3337,10 @@ if __name__ == "__main__":
     args = ap.parse_args()
     if setup_needed:
         print("\n" + "=" * 64)
-        print("  FIRST RUN — no accounts exist yet.")
+        print("  FIRST RUN, no accounts exist yet.")
         print(f"  Open  http://{args.host}:{args.port}/  in your browser and")
         print("  create your administrator account to get started.")
-        print("  After that, add your team under 'Users' — each teammate sets")
+        print("  After that, add your team under 'Users', each teammate sets")
         print("  their own password at first sign-in.")
         print("=" * 64 + "\n")
     print(f"Argus running at http://{args.host}:{args.port}  (DB: {DB_PATH})")

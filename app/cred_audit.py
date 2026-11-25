@@ -1,5 +1,5 @@
 """
-cred_audit.py — read-only authenticated (credentialed) host audit over SSH.
+cred_audit.py, read-only authenticated (credentialed) host audit over SSH.
 
 WHY THIS EXISTS
   Unauthenticated scanning sees only what a host exposes to the network. The
@@ -8,7 +8,7 @@ WHY THIS EXISTS
   OS patch level and local configuration that the network can't reveal. This
   module does exactly that, and nothing more.
 
-SCOPE AND SAFETY (read this — it is the whole contract)
+SCOPE AND SAFETY (read this, it is the whole contract)
   * READ ONLY. It runs a fixed, audited allowlist of inspection commands
     (COMMANDS below) and reads their output. It never writes a file, installs
     or removes anything, changes config, or runs anything destructive. There is
@@ -48,7 +48,7 @@ COMMANDS = {
 
 
 # ---------------------------------------------------------------------------
-# Parsers (pure functions — unit-tested offline)
+# Parsers (pure functions, unit-tested offline)
 # ---------------------------------------------------------------------------
 def parse_os_release(text):
     """Parse /etc/os-release into {id, version_id, pretty}."""
@@ -97,7 +97,7 @@ def os_eol_status(os_id, version_id):
 def parse_sshd_config(text):
     """Effective-ish sshd_config: last non-comment occurrence of each directive
     wins (OpenSSH actually takes the first, but Match blocks and includes make
-    this a heuristic read — we flag for human confirmation, we don't enforce)."""
+    this a heuristic read, we flag for human confirmation, we don't enforce)."""
     cfg = {}
     for line in (text or "").splitlines():
         s = line.strip()
@@ -143,7 +143,7 @@ def audit_host(ip, run_cmd):
 
     `run_cmd(command)` must return (exit_status:int, stdout:str, stderr:str).
     Returns a list of finding dicts. Any command that fails simply yields no
-    finding — a partial audit is still useful and never crashes the scan.
+    finding, a partial audit is still useful and never crashes the scan.
     """
     findings = []
 
@@ -162,7 +162,7 @@ def audit_host(ip, run_cmd):
         eol = os_eol_status(osr["id"], osr["version_id"])
         if eol:
             findings.append(_f(
-                ip, f"Operating system is end-of-life — {label}",
+                ip, f"Operating system is end-of-life, {label}",
                 f"{ip} runs {label}, which is no longer receiving vendor security updates.",
                 eol + " An unsupported OS accumulates unpatched vulnerabilities with no fix path. "
                 "Read from /etc/os-release over an authenticated session.",
@@ -171,7 +171,7 @@ def audit_host(ip, run_cmd):
                 "isolate the host until then."))
         else:
             findings.append(_f(
-                ip, f"Operating system inventory — {label}",
+                ip, f"Operating system inventory, {label}",
                 f"{ip} runs {label}.",
                 "Operating system identified over an authenticated session (read from "
                 "/etc/os-release). Recorded for inventory and lifecycle tracking.",
@@ -336,7 +336,7 @@ def make_ssh_runner(host, port=22, username="", password="", key_data="", timeou
 
 
 if __name__ == "__main__":
-    # offline self-tests with a fake runner — no paramiko, no network, no creds
+    # offline self-tests with a fake runner, no paramiko, no network, no creds
     assert parse_os_release('ID=ubuntu\nVERSION_ID="18.04"\nPRETTY_NAME="Ubuntu 18.04.6 LTS"')["id"] == "ubuntu"
     assert os_eol_status("ubuntu", "18.04")
     assert os_eol_status("ubuntu", "22.04") == ""
@@ -351,7 +351,7 @@ if __name__ == "__main__":
         COMMANDS["kernel"]: (0, "Linux 4.15.0-1\n", ""),
         COMMANDS["reboot_required"]: (0, "REBOOT_REQUIRED\n", ""),
         COMMANDS["sshd_config"]: (0, "PermitRootLogin yes\nPasswordAuthentication yes\n", ""),
-        COMMANDS["apt_check"]: (0, "", "42;5"),   # apt-check writes to stderr
+        COMMANDS["apt_check"]: (0, "", "42;5"),  # apt-check writes to stderr
         COMMANDS["yum_check"]: (0, "0\n", ""),
     }
     fake = lambda c: responses.get(c, (1, "", ""))

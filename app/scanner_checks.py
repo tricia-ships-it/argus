@@ -1,10 +1,10 @@
 """
-scanner_checks.py — additional assessment modules for the built-in scanner.
+scanner_checks.py, additional assessment modules for the built-in scanner.
 
 SCOPE AND SAFETY (same contract as scanner.py):
   Every check here is *detection only*. It reads what a service voluntarily
-  advertises during the ordinary, pre-authentication part of its protocol — the
-  same information any client sees — and never authenticates, sends exploit
+  advertises during the ordinary, pre-authentication part of its protocol, the
+  same information any client sees, and never authenticates, sends exploit
   payloads, brute-forces, or alters the target. Specifically:
 
     - TLS: inspects the negotiated cipher and the certificate's own validity
@@ -49,7 +49,7 @@ def _finding(ip, port, vuln, synopsis, definition, risk, solution, source,
 
 
 # ===========================================================================
-# TLS — certificate validity window + weak negotiated cipher
+# TLS, certificate validity window + weak negotiated cipher
 # ===========================================================================
 WEAK_CIPHER_TOKENS = ("RC4", "3DES", "DES-", "DES_", "NULL", "EXPORT", "MD5",
                       "ANON", "ADH", "AECDH", "IDEA", "SEED", "CAMELLIA128-")
@@ -191,7 +191,7 @@ def _parse_cert_time(s):
 
 
 # ===========================================================================
-# SSH — read the server's advertised algorithms (KEXINIT), like ssh-audit
+# SSH, read the server's advertised algorithms (KEXINIT), like ssh-audit
 # ===========================================================================
 WEAK_SSH = {
     "kex": ["diffie-hellman-group1-sha1", "diffie-hellman-group14-sha1",
@@ -332,7 +332,7 @@ def _parse_kexinit(payload):
 
 
 # ===========================================================================
-# SMB — NEGOTIATE only: read signing requirement and whether SMBv1 answers
+# SMB, NEGOTIATE only: read signing requirement and whether SMBv1 answers
 # ===========================================================================
 def check_smb(ip, port=445, timeout=4.0):
     findings = []
@@ -441,7 +441,7 @@ def _smb1_supported(ip, port, timeout):
 
 
 # ===========================================================================
-# RDP — X.224 negotiation only: which security layer does the server require?
+# RDP, X.224 negotiation only: which security layer does the server require?
 # ===========================================================================
 def check_rdp(ip, port=3389, timeout=4.0):
     findings = []
@@ -502,7 +502,7 @@ def _rdp_negotiate(ip, port, timeout):
 
 
 # ===========================================================================
-# HTTP — risky methods, cookie flags, directory listing
+# HTTP, risky methods, cookie flags, directory listing
 # ===========================================================================
 def check_http_hardening(ip, port, use_tls, timeout=3.0):
     import http.client
@@ -582,7 +582,7 @@ def check_http_hardening(ip, port, use_tls, timeout=3.0):
 
 
 # ===========================================================================
-# Exposed data services — open, reachable data stores on the segment
+# Exposed data services, open, reachable data stores on the segment
 # ===========================================================================
 EXPOSED_SERVICES = {
     9200: ("Elasticsearch", "High", "Elasticsearch is reachable. If unauthenticated it exposes "
@@ -603,7 +603,7 @@ EXPOSED_SERVICES = {
 
 def exposed_service_finding(ip, port):
     """Return a finding dict if `port` is a sensitive data service, else None.
-    Detection is by reachability only — no query or authentication is attempted."""
+    Detection is by reachability only, no query or authentication is attempted."""
     if port not in EXPOSED_SERVICES:
         return None
     name, risk, why = EXPOSED_SERVICES[port]
@@ -619,7 +619,7 @@ def exposed_service_finding(ip, port):
 
 
 # ===========================================================================
-# Exposed sensitive files/endpoints — benign GETs for well-known leak paths
+# Exposed sensitive files/endpoints, benign GETs for well-known leak paths
 # ===========================================================================
 # Each entry: path -> (label, risk, a signature that must appear in the body so
 # we don't flag an ordinary 200 page). Only GET is used; nothing is written, and
@@ -688,7 +688,7 @@ def check_exposed_paths(ip, port, use_tls, timeout=3.0):
 
 
 # ===========================================================================
-# Cleartext mail services — STARTTLS availability via benign protocol chatter
+# Cleartext mail services, STARTTLS availability via benign protocol chatter
 # ===========================================================================
 def _read_line(sock, limit=2048):
     data = b""
@@ -705,7 +705,7 @@ def _read_line(sock, limit=2048):
 
 def check_mail_cleartext(ip, port, timeout=4.0):
     """For SMTP/POP3/IMAP, negotiate only far enough to see whether STARTTLS is
-    offered. No authentication, no mail is sent — this is ordinary capability
+    offered. No authentication, no mail is sent, this is ordinary capability
     discovery (EHLO / CAPA / CAPABILITY), the same a mail client performs."""
     findings = []
     svc = {25: "SMTP", 587: "SMTP submission", 110: "POP3", 143: "IMAP"}.get(port)
@@ -763,8 +763,8 @@ def check_mail_cleartext(ip, port, timeout=4.0):
 
 
 def check_ftp_tls(ip, port=21, timeout=4.0):
-    """Check whether an FTP service offers AUTH TLS (FEAT), read-only. No login —
-    not even anonymous — is attempted, honouring the no-default-credentials rule."""
+    """Check whether an FTP service offers AUTH TLS (FEAT), read-only. No login,
+    not even anonymous, is attempted, honouring the no-default-credentials rule."""
     findings = []
     try:
         with socket.create_connection((ip, port), timeout=timeout) as s:

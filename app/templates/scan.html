@@ -3,7 +3,7 @@
 {% block body %}
 
 <h1>Run a vulnerability assessment</h1>
-<p class="lede">The built-in scanner probes your targets locally — discovery, open ports, service versions, TLS and HTTP weaknesses, and known-CVE matches. It identifies and reports only; it does not exploit. Penetration testing stays manual.</p>
+<p class="lede">The built-in scanner probes your targets locally, discovery, open ports, service versions, TLS and HTTP weaknesses, and known-CVE matches. It identifies and reports only; it does not exploit. Penetration testing stays manual.</p>
 
 <form method="post" action="{{ url_for('scan_start') }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   <div class="panel">
@@ -31,7 +31,7 @@
       <div class="field full">
         <label>IP addresses, ranges or CIDR {% if eligible %}<span class="muted">(optional)</span>{% endif %}</label>
         <textarea name="targets" placeholder="10.100.72.3&#10;10.100.72.0/28&#10;10.100.72.1-20"{{ '' if eligible else ' required' }}></textarea>
-        <span class="hint">One or many. Accepts single IPs, 10.0.0.0/24 CIDR, 10.0.0.1-20 ranges, or hostnames — separated by spaces, commas or new lines.</span>
+        <span class="hint">One or many. Accepts single IPs, 10.0.0.0/24 CIDR, 10.0.0.1-20 ranges, or hostnames, separated by spaces, commas or new lines.</span>
       </div>
       <div class="field full">
         <label>Scan profile</label>
@@ -39,7 +39,7 @@
           {% for key, p in scan_profiles.items() %}
           <option value="{{ key }}" {{ 'selected' if key=='standard' }}>{{ p.label }}</option>
           {% endfor %}
-          <option value="custom">Custom — type exact ports below</option>
+          <option value="custom">Custom, type exact ports below</option>
         </select>
         <span class="hint" id="profilehint">{{ scan_profiles['standard'].desc }}</span>
       </div>
@@ -61,7 +61,7 @@
       <div class="field">
         <label>Default Asset Classification</label>
         <select name="default_classification">
-          <option value="">— set per asset later —</option>
+          <option value="">set per asset later,</option>
           {% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
         </select>
         <span class="hint">Needed before Actual Risk calculates.</span>
@@ -69,7 +69,7 @@
       <div class="field">
         <label>Default Asset Owner</label>
         <select name="default_owner">
-          <option value="">— unassigned —</option>
+          <option value="">unassigned,</option>
           {% for o in owners %}<option value="{{ o }}">{{ o }}</option>{% endfor %}
         </select>
       </div>
@@ -86,7 +86,7 @@
 
   <div class="panel">
     <h2>Authenticated checks <span class="muted">(optional, read-only)</span></h2>
-    <p class="subhead">Log in to each live host over SSH with a read-only account to see patch level and local configuration the network can't show — the biggest single gain in thoroughness. Argus runs only a fixed list of inspection commands; it never changes anything.</p>
+    <p class="subhead">Log in to each live host over SSH with a read-only account to see patch level and local configuration the network can't show, the biggest single gain in thoroughness. Argus runs only a fixed list of inspection commands; it never changes anything.</p>
     <label class="check" style="margin-bottom:6px"><input type="checkbox" name="auth_enable" id="authenable"> Run a read-only credentialed audit over SSH</label>
     <div id="authfields" class="form-grid" hidden>
       <div class="field">
@@ -102,17 +102,17 @@
         <input type="password" name="ssh_password" autocomplete="new-password">
       </div>
       <div class="field full">
-        <label>Private key <span class="muted">(optional; paste an OpenSSH key — password above unlocks it if encrypted)</span></label>
+        <label>Private key <span class="muted">(optional; paste an OpenSSH key, password above unlocks it if encrypted)</span></label>
         <textarea name="ssh_key" rows="4" autocomplete="off" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;…"></textarea>
       </div>
       <div class="field full">
-        <span class="hint" style="color:var(--low)">Credentials are used for this one scan and held only in memory — Argus never writes them to the database or disk. One credential set is tried against every live host. Needs the <code>paramiko</code> package on the Argus host.</span>
+        <span class="hint" style="color:var(--low)">Credentials are used for this one scan and held only in memory, Argus never writes them to the database or disk. One credential set is tried against every live host. Needs the <code>paramiko</code> package on the Argus host.</span>
       </div>
     </div>
   </div>
 
   <div class="panel" style="border-color:#2a3a1f;background:#161d13">
-    <h2 style="color:var(--low)">What this scan does — and doesn't</h2>
+    <h2 style="color:var(--low)">What this scan does, and doesn't</h2>
     <ul style="color:var(--ink-dim);font-size:13px;line-height:1.7;margin:0;padding-left:18px">
       <li><b style="color:var(--ink)">Does:</b> host discovery, TCP port scan, service/version fingerprint, TLS protocol &amp; certificate checks, HTTP security-header review, risky-service flags, and version-to-CVE matching against the local dataset.</li>
       <li><b style="color:var(--ink)">Doesn't:</b> send exploit payloads, brute-force credentials, or alter targets. It makes the same benign connections any ordinary client would. Real exploitation is done manually by your team.</li>
@@ -136,7 +136,7 @@
   if (sel) {
     var descs = {
       {% for key, p in scan_profiles.items() %}"{{ key }}": {{ p.desc|tojson }},{% endfor %}
-      "custom": "Scan exactly the ports you type below — nothing else."
+      "custom": "Scan exactly the ports you type below, nothing else."
     };
     sel.addEventListener('change', function () {
       if (hint) hint.textContent = descs[sel.value] || '';

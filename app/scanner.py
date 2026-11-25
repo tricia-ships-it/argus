@@ -1,5 +1,5 @@
 """
-scanner.py — the built-in offline vulnerability assessment engine.
+scanner.py, the built-in offline vulnerability assessment engine.
 
 SCOPE AND SAFETY (read this):
   This is a *vulnerability assessment* scanner, not a penetration / exploitation
@@ -11,7 +11,7 @@ SCOPE AND SAFETY (read this):
      - TLS/SSL configuration checks (protocol versions, cert expiry, self-signed)
      - HTTP security-header checks (missing HSTS, etc.)
      - version-to-CVE matching against a LOCAL, bundled dataset
-  It performs only light, benign connections — the same traffic a service sees
+  It performs only light, benign connections, the same traffic a service sees
   from any ordinary client. It does NOT send exploit payloads, brute-force
   credentials, or run destructive checks. Actual penetration testing is done
   manually by the team, by design.
@@ -34,7 +34,7 @@ from vuln_db import match_cves, service_advice
 import scanner_checks
 
 # ---------------------------------------------------------------------------
-# Default port set — common data-centre / infrastructure services.
+# Default port set, common data-centre / infrastructure services.
 # The operator can override with a custom list.
 # ---------------------------------------------------------------------------
 DEFAULT_PORTS = [
@@ -59,7 +59,7 @@ RISKY_PLAINTEXT = {23: "telnet", 21: "ftp", 161: "snmp", 6379: "redis",
                    11211: "memcached", 2049: "nfs"}
 
 # ---------------------------------------------------------------------------
-# Scan profiles — named port sets so the operator picks scope without typing
+# Scan profiles, named port sets so the operator picks scope without typing
 # port lists. "Custom" (handled in the UI) lets them type their own.
 # ---------------------------------------------------------------------------
 _WEB_PORTS = [80, 443, 3000, 5000, 8000, 8008, 8080, 8081, 8088, 8443, 8888, 9000, 9090, 9200]
@@ -71,23 +71,23 @@ _FULL_EXTRA = [
 ]
 SCAN_PROFILES = {
     "quick": {
-        "label": "Quick — top ~20 common ports",
+        "label": "Quick, top ~20 common ports",
         "desc": "Fastest. The services most often found and most often at risk.",
         "ports": [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 993, 995,
                   1433, 3306, 3389, 5432, 8080, 8443],
     },
     "standard": {
-        "label": "Standard — default data-centre set",
+        "label": "Standard, default data-centre set",
         "desc": "The recommended balance of coverage and speed.",
         "ports": list(DEFAULT_PORTS),
     },
     "web": {
-        "label": "Web services — HTTP/HTTPS ports",
+        "label": "Web services, HTTP/HTTPS ports",
         "desc": "Only web ports, with the extra TLS and header/content checks.",
         "ports": _WEB_PORTS,
     },
     "full": {
-        "label": "Full — extended port set (slower)",
+        "label": "Full, extended port set (slower)",
         "desc": "Widest built-in coverage. Takes noticeably longer per host.",
         "ports": sorted(set(DEFAULT_PORTS) | set(_FULL_EXTRA) | set(_WEB_PORTS)),
     },
@@ -160,7 +160,7 @@ def grab_banner(ip, port, timeout=2.0):
                 data = s.recv(2048)
             except socket.timeout:
                 data = b""
-            # If nothing was volunteered, try a benign HTTP HEAD — many services
+            # If nothing was volunteered, try a benign HTTP HEAD, many services
             # (web servers on any port) only respond once spoken to.
             if not data and port not in TLS_PORTS:
                 try:
@@ -265,7 +265,7 @@ def check_tls(ip, port, timeout=3.0):
                      "and ensure the full chain and validity dates are correct.",
         ))
 
-    # 2. deprecated protocol support — try to negotiate TLS 1.0 and 1.1 explicitly
+    # 2. deprecated protocol support, try to negotiate TLS 1.0 and 1.1 explicitly
     for proto_name, proto_const in _legacy_protocols():
         if _supports_protocol(ip, port, proto_const, timeout):
             findings.append(_tls_finding(
@@ -425,13 +425,13 @@ def scan_host(ip, ports=None, timeout=1.0, do_tls=True, do_http=True,
         looks_http = ("http/" in banner.lower() or "server:" in banner.lower())
         looks_tls = _speaks_tls(ip, port, timeout) if port not in TLS_PORTS else True
 
-        # Inventory finding (Information) — the attack surface, recorded.
+        # Inventory finding (Information), the attack surface, recorded.
         inv_syn = f"Open {port}/tcp ({svc})"
         if product:
-            inv_syn += f" — {product}{(' ' + version) if version else ''}"
+            inv_syn += f", {product}{(' ' + version) if version else ''}"
         findings.append({
             "ip_hostname": ip, "device": "",
-            "vulnerability": f"Open service {port}/tcp — {svc}",
+            "vulnerability": f"Open service {port}/tcp, {svc}",
             "synopsis": inv_syn,
             "definition": "The built-in scanner found this TCP port open and recorded the service for "
                           "attack-surface inventory. Confirm the service is required and restricted.",
@@ -458,17 +458,17 @@ def scan_host(ip, ports=None, timeout=1.0, do_tls=True, do_http=True,
                 "source_tool": "Built-in scanner",
             })
 
-        # Exposed data services (reachability only — no auth attempted)
+        # Exposed data services (reachability only, no auth attempted)
         exp_f = scanner_checks.exposed_service_finding(ip, port)
         if exp_f:
             findings.append(exp_f)
 
-        # Cleartext mail services — STARTTLS availability (capability chatter only)
+        # Cleartext mail services, STARTTLS availability (capability chatter only)
         if port in (25, 587, 110, 143):
             say(f"{ip}:{port} checking mail transport security")
             findings.extend(scanner_checks.check_mail_cleartext(ip, port, timeout=max(timeout, 4.0)))
 
-        # FTP transport security — AUTH TLS via FEAT (no login attempted)
+        # FTP transport security, AUTH TLS via FEAT (no login attempted)
         if port == 21:
             say(f"{ip}:{port} checking FTP transport security")
             findings.extend(scanner_checks.check_ftp_tls(ip, port, timeout=max(timeout, 4.0)))
@@ -494,7 +494,7 @@ def scan_host(ip, ports=None, timeout=1.0, do_tls=True, do_http=True,
             for hit in match_cves(product, version):
                 findings.append({
                     "ip_hostname": ip, "device": "",
-                    "vulnerability": f"{product} {version} — {hit['title']}",
+                    "vulnerability": f"{product} {version}, {hit['title']}",
                     "synopsis": hit["synopsis"],
                     "definition": hit["definition"] +
                         f" Matched from the service banner ({product} {version}) against the local "
@@ -616,7 +616,7 @@ def scan_targets(spec, ports=None, timeout=1.0, do_tls=True, do_http=True,
     scan_ips = [ip for ip in all_ips if ip not in blocklist]
     for ip in skipped:
         if progress:
-            progress(f"{ip} SKIPPED — asset marked do-not-actively-scan "
+            progress(f"{ip} SKIPPED, asset marked do-not-actively-scan "
                      "(OT/protected); active probing suppressed by policy")
     all_findings = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=host_workers) as ex:

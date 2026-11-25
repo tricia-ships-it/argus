@@ -1,13 +1,13 @@
 """
-cvss.py — CVSS v3.1 helpers (offline, no dependencies).
+cvss.py, CVSS v3.1 helpers (offline, no dependencies).
 
 Argus stores two CVSS facts per finding when it knows them: a base score
-(0.0–10.0) and the base vector string. This module keeps that handling in one
+(0.0-10.0) and the base vector string. This module keeps that handling in one
 place:
 
   * severity_band(score)   -> the qualitative band CVSS v3.1 defines, so a
                               score and a severity label never disagree.
-  * clamp_score(value)     -> a tolerant parse to a valid 0.0–10.0 score, or
+  * clamp_score(value)     -> a tolerant parse to a valid 0.0-10.0 score, or
                               None when the input isn't a usable number.
   * parse_vector(vector)   -> a light structural check + the metrics it carries,
                               used only to display/verify a vector, never to
@@ -85,7 +85,7 @@ def severity_band(score):
 
 def parse_vector(vector):
     """Return a dict describing a CVSS v3.x base vector, or None if it doesn't
-    look like one. Used for display only — we never recompute the score."""
+    look like one. Used for display only, we never recompute the score."""
     if not vector or not isinstance(vector, str):
         return None
     v = vector.strip()

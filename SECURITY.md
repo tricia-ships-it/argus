@@ -54,7 +54,7 @@ are what ship in this repository.
 - Assessment only: it identifies and reports. It does not run exploits,
   brute-force credentials, or alter targets. Scanning is restricted to editors
   and admins. Ping uses a fixed argument list (no shell), and targets are
-  validated as IPs/CIDR/ranges before use — no command injection.
+  validated as IPs/CIDR/ranges before use, no command injection.
 
 ## Dependency security
 
@@ -63,7 +63,7 @@ Runtime dependencies are **pinned to exact versions** in `app/requirements.txt`
 MarkupSafe, itsdangerous, click and blinker). Pinning keeps installs predictable
 and makes audits meaningful.
 
-**Audit for known CVEs** — run before deploying and periodically after:
+**Audit for known CVEs**, run before deploying and periodically after:
 
 ```bash
 ./scripts/audit.sh            # Linux / macOS
@@ -75,7 +75,7 @@ installed packages against the PyPI Advisory and OSV databases. If it flags a
 package, bump its pin in `app/requirements.txt` and re-run.
 
 **Reproducible, hash-verified installs (recommended for production).** Generate a
-lock on your target platform so every install is byte-for-byte verified — this is
+lock on your target platform so every install is byte-for-byte verified, this is
 done on your machine rather than shipped, because wheel hashes are
 platform-specific:
 

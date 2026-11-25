@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <h1>Overview</h1>
-    <p class="lede">The whole programme at a glance — risk posture, remediation, assets, threats and awareness. Updates live from the register.</p>
+    <p class="lede">The whole programme at a glance, risk posture, remediation, assets, threats and awareness. Updates live from the register.</p>
   </div>
   <div class="head-actions">
     <a class="btn ghost" href="{{ url_for('shared_list') }}">Shared with me</a>
@@ -18,7 +18,7 @@
 {% if f.total == 0 and m.assets.total == 0 %}
 <div class="empty">
   <h3>Let's get Argus populated</h3>
-  <p>Import your asset register, run a scan, or import scan results — the overview fills in automatically as data arrives.</p>
+  <p>Import your asset register, run a scan, or import scan results, the overview fills in automatically as data arrives.</p>
   <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px">
     {% if can_import_or_scan %}<a class="btn primary" href="{{ url_for('scan_page') }}">Run a scan</a>
     <a class="btn" href="{{ url_for('inventory') }}">Import assets</a>
@@ -116,7 +116,7 @@
     {% for a in m.activity %}
     <li>
       <span class="ov-act-who">{{ a.display_name or a.username or 'Someone' }}</span>
-      <span class="ov-act-what">{{ a.action }}{% if a.detail %} — {{ a.detail|truncate(80) }}{% endif %}</span>
+      <span class="ov-act-what">{{ a.action }}{% if a.detail %}, {{ a.detail|truncate(80) }}{% endif %}</span>
       <span class="ov-act-when">{{ (a.created_at or '')[:16].replace('T',' ') }}</span>
     </li>
     {% endfor %}

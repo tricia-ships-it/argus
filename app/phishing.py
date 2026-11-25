@@ -1,5 +1,5 @@
 """
-Phishing-awareness simulation — responsible-scope only.
+Phishing-awareness simulation, responsible-scope only.
 
 Design constraints (deliberate, do not relax):
   * This module NEVER captures credentials. The link in a simulated email
@@ -11,7 +11,7 @@ Design constraints (deliberate, do not relax):
     spam/phishing sending engine.
   * Templates use generic role framing ("IT Service Desk", "HR") and never
     impersonate a specific real company, brand or person.
-  * Only an opaque, unguessable token per recipient appears in the URL — no
+  * Only an opaque, unguessable token per recipient appears in the URL, no
     names, emails or IDs are encoded in it.
 
 The point of the exercise is to measure click behaviour and turn a click
@@ -39,7 +39,7 @@ TEMPLATES = [
             "Regards,\nIT Service Desk"
         ),
         "flags": [
-            "Creates false urgency — a real password change is never a 'do it in the next few hours or lose access' emergency.",
+            "Creates false urgency, a real password change is never a 'do it in the next few hours or lose access' emergency.",
             "The sender domain (it-servicedesk.example) is not your real IT domain.",
             "Asks you to 'confirm your account' through a link rather than through the tool you normally use.",
             "Generic threat of being 'locked out' to push you past your judgement.",
@@ -63,7 +63,7 @@ TEMPLATES = [
         "flags": [
             "A tempting subject ('Compensation Review') is bait to make you click before thinking.",
             "'You may be asked to sign in' is how credential-harvest pages get your password.",
-            "No named colleague — a genuine share names the person who sent it.",
+            "No named colleague, a genuine share names the person who sent it.",
             "The link host is not the document system your organisation actually uses.",
         ],
     },
@@ -72,7 +72,7 @@ TEMPLATES = [
         "name": "Failed package delivery",
         "category": "Consumer lure",
         "sender": "Courier Notifications <tracking@parcel-notice.example>",
-        "subject": "We missed you — reschedule your delivery",
+        "subject": "We missed you, reschedule your delivery",
         "body": (
             "Hello {{name}},\n\n"
             "We attempted to deliver a parcel addressed to you but no one was "
@@ -85,7 +85,7 @@ TEMPLATES = [
             "You were not expecting this parcel, and the message gives no tracking number you recognise.",
             "A short deadline ('returned after 48 hours') to rush you.",
             "Delivery companies do not ask you to 'confirm your details' on a web form to redeliver.",
-            "Sent to your work address for a personal parcel — a common mismatch in real phishing.",
+            "Sent to your work address for a personal parcel, a common mismatch in real phishing.",
         ],
     },
     {
@@ -124,9 +124,9 @@ TEMPLATES = [
             "Security Team"
         ),
         "flags": [
-            "Uses security language to sound legitimate — attackers often pose as the security team.",
+            "Uses security language to sound legitimate, attackers often pose as the security team.",
             "MFA re-enrollment is driven from your identity provider, not a link in an email.",
-            "24-hour deadline plus threat of a disabled account — classic pressure tactics.",
+            "24-hour deadline plus threat of a disabled account, classic pressure tactics.",
             "The domain (account-verify.example) is not an internal address.",
         ],
     },
@@ -136,7 +136,7 @@ TEMPLATE_BY_KEY = {t["key"]: t for t in TEMPLATES}
 
 
 def render_body(body, name, link):
-    """Fill the two allowed placeholders. Plain text only — no HTML, no exec."""
+    """Fill the two allowed placeholders. Plain text only, no HTML, no exec."""
     safe_name = name or "there"
     return (body or "").replace("{{name}}", safe_name).replace("{{link}}", link)
 

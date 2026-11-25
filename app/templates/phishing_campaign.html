@@ -45,7 +45,7 @@
 {% if c.status == 'Draft' %}
 <div class="note">This campaign is a draft. Add recipients below, then <strong>Launch</strong> to start recording clicks. Tracking links only count once a campaign is Active.</div>
 {% elif c.status == 'Active' %}
-<div class="note">Active. Export the links and send the email from your authorised mail relay — Argus does not send mail itself. Clicks appear below as they happen.</div>
+<div class="note">Active. Export the links and send the email from your authorised mail relay, Argus does not send mail itself. Clicks appear below as they happen.</div>
 {% endif %}
 
 <div class="split">
@@ -60,20 +60,20 @@
       <tbody>
         {% for r in recips %}
         <tr>
-          <td>{{ r.name or (r.email.split('@')[0] if r.email else '—') }}</td>
-          <td class="mono">{% if channel in ['sms','whatsapp'] %}{{ r.phone or '—' }}{% elif channel == 'social' %}{{ r.handle or '—' }}{% else %}{{ r.email or '—' }}{% endif %}</td>
-          <td>{% if r.grp %}<span class="grp-tag">{{ r.grp }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td>{{ r.name or (r.email.split('@')[0] if r.email else '-') }}</td>
+          <td class="mono">{% if channel in ['sms','whatsapp'] %}{{ r.phone or '-' }}{% elif channel == 'social' %}{{ r.handle or '-' }}{% else %}{{ r.email or '-' }}{% endif %}</td>
+          <td>{% if r.grp %}<span class="grp-tag">{{ r.grp }}</span>{% else %}<span class="muted">-</span>{% endif %}</td>
           <td class="nowrap">
             {% if r.delivery_status == 'sent' %}<span class="risk Low sm">Sent</span>
             {% elif r.delivery_status == 'failed' %}<span class="risk Critical sm" title="{{ r.delivery_error }}">Failed</span>
-            {% else %}<span class="muted">—</span>{% endif %}
+            {% else %}<span class="muted">-</span>{% endif %}
           </td>
           <td class="nowrap">
             {% if r.reported_at %}<span class="risk Low sm">Reported ✓</span>
             {% elif r.clicked_at %}<span class="risk High sm">Clicked</span>{% if r.click_count > 1 %} <span class="muted mono">×{{ r.click_count }}</span>{% endif %}
             {% else %}<span class="muted">No click</span>{% endif %}
           </td>
-          <td class="mono nowrap muted">{{ (r.reported_at or r.clicked_at or '')[:16].replace('T',' ') or '—' }}</td>
+          <td class="mono nowrap muted">{{ (r.reported_at or r.clicked_at or '')[:16].replace('T',' ') or '-' }}</td>
           <td class="nowrap">
             {% if is_manual %}
             <button class="btn sm ghost copymsg" data-name="{{ r.name }}" data-email="{{ r.email }}" data-link="{{ url_for('phish_land', token=r.token, _external=True) }}">Copy message</button>
@@ -94,11 +94,11 @@
     <form method="post" action="{{ url_for('phishing_recipients', cid=c.id) }}" class="stack" style="margin-top:16px">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <div class="field">
-        <label for="recipients">Add recipients <span class="muted">— one per line. Mix any of: name, email, <span class="mono">+phone</span>, <span class="mono">@handle</span>, department (any order)</span></label>
+        <label for="recipients">Add recipients, <span class="muted">one per line. Mix any of: name, email, <span class="mono">+phone</span>, <span class="mono">@handle</span>, department in any order</span></label>
         <textarea id="recipients" name="recipients" rows="4" placeholder="Alex Mensah, alex@company.example, Finance&#10;Jordan Owusu, +233201234567&#10;Ama Boateng, @ama.b, ama@company.example"></textarea>
       </div>
       <div class="field">
-        <label for="group">Add to group <span class="muted">(optional) — e.g. Finance, IT, Executives. Lets you send to just this group later.</span></label>
+        <label for="group">Add to group <span class="muted">(optional), e.g. Finance, IT, Executives. Lets you send to just this group later.</span></label>
         <input type="text" id="group" name="group" list="grouplist" placeholder="Ungrouped" style="max-width:260px">
         <datalist id="grouplist">{% for g in groups if g.name %}<option value="{{ g.name }}">{% endfor %}</datalist>
       </div>
@@ -120,7 +120,7 @@
         {% else %}<b class="risk-text">not configured</b>{% endif %}
       </div>
       {% if not provider_ready %}
-      <p class="card-sub">Set this channel's credentials in the server environment, then reload. Argus reads provider secrets from the environment only — never from this page — so they stay out of the database. See <a href="{{ url_for('settings_page', section='delivery') }}">delivery settings</a> for the variable names.</p>
+      <p class="card-sub">Set this channel's credentials in the server environment, then reload. Argus reads provider secrets from the environment only, never from this page, so they stay out of the database. See <a href="{{ url_for('settings_page', section='delivery') }}">delivery settings</a> for the variable names.</p>
       {% endif %}
 
       {% if not c.authorized %}
@@ -196,7 +196,7 @@
       {% for f in flags %}<li>{{ f }}</li>{% endfor %}
     </ul>
     {% endif %}
-    <p class="note">Argus never collects passwords. The link opens a short explanation only — there is no login form anywhere in this exercise.</p>
+    <p class="note">Argus never collects passwords. The link opens a short explanation only, there is no login form anywhere in this exercise.</p>
   </aside>
 </div>
 

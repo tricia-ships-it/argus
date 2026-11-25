@@ -1,5 +1,5 @@
 """
-engine.py — the automation logic shared by the whole app.
+engine.py, the automation logic shared by the whole app.
 
 This is the single source of truth for:
   - the risk matrix (Asset Classification | Reported Risk | Exploit -> Actual Risk)

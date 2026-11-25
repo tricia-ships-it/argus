@@ -1,5 +1,5 @@
 """
-threatintel.py — offline-first threat-intelligence matching.
+threatintel.py, offline-first threat-intelligence matching.
 
 SECURITY MODEL (read this before changing anything):
   The asset inventory NEVER leaves this machine. The only network activity this
@@ -14,7 +14,7 @@ SECURITY MODEL (read this before changing anything):
       hardcoded SOURCES registry, never from the caller. There is no parameter
       through which asset data (IPs, hostnames, inventory) could be transmitted.
     * Matching (`match`) runs entirely locally on data already in the database,
-      keyed on product and CVE — never on IP address.
+      keyed on product and CVE, never on IP address.
 
   The allow-list below is the complete set of endpoints the app may contact.
   The Settings page exposes these as checkboxes; disabling one removes it from
@@ -40,14 +40,14 @@ SOURCES = [
     },
     {
         "id": "nvd_recent",
-        "name": "NVD — recently modified CVEs",
+        "name": "NVD, recently modified CVEs",
         "url": "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-modified.json.gz",
         "kind": "nvd",
         "desc": "Recently added or changed CVE records from the US National Vulnerability Database.",
     },
     {
         "id": "nvd_recent_new",
-        "name": "NVD — recent new CVEs",
+        "name": "NVD, recent new CVEs",
         "url": "https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-recent.json.gz",
         "kind": "nvd",
         "desc": "The most recently published CVE records from the NVD.",
@@ -57,7 +57,7 @@ SOURCES = [
 SOURCE_BY_ID = {s["id"]: s for s in SOURCES}
 _ALL_URLS = {s["url"] for s in SOURCES}
 
-# fixed, non-identifying request header. Deliberately generic — carries nothing
+# fixed, non-identifying request header. Deliberately generic, carries nothing
 # about this deployment or its assets.
 _UA = "Argus-FeedSync/1.0 (+offline vulnerability feed update)"
 
@@ -136,7 +136,7 @@ _KIND_IDS = {k["id"] for k in SOURCE_KINDS}
 
 def validate_source_url(url):
     """Guard a user-supplied source URL. The app must only ever reach *public*
-    feed endpoints — never anything inside the operator's own network — so this
+    feed endpoints, never anything inside the operator's own network, so this
     rejects non-HTTPS, loopback/internal names, and any host that is (or
     resolves to) a private, loopback, link-local or otherwise non-global IP.
     Returns (ok: bool, reason: str)."""
@@ -155,7 +155,7 @@ def validate_source_url(url):
     low = host.lower()
     if low == "localhost" or low.endswith(".local") or low.endswith(".internal") \
             or low.endswith(".lan") or low.endswith(".home.arpa"):
-        return False, "Internal or loopback hosts are not allowed — sources must be public."
+        return False, "Internal or loopback hosts are not allowed, sources must be public."
     # IP literal: must be a globally routable address
     try:
         ip = ipaddress.ip_address(host)
@@ -169,7 +169,7 @@ def validate_source_url(url):
         infos = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
     except Exception:
         # resolution can fail on an air-gapped box; allow a well-formed public
-        # hostname through — the fetch itself fails safely if it is unreachable.
+        # hostname through, the fetch itself fails safely if it is unreachable.
         return True, ""
     for info in infos:
         try:
@@ -215,7 +215,7 @@ def parse_kev(raw, source_name="CISA KEV"):
             "cve": (v.get("cveID") or "").upper(),
             "title": v.get("vulnerabilityName") or "",
             "products": [p for p in [v.get("product"), v.get("vendorProject")] if p],
-            "severity": "Critical",     # KEV = actively exploited → treat as top priority
+            "severity": "Critical",    # KEV = actively exploited → treat as top priority
             "source": source_name, "kev": True,
             "date": v.get("dateAdded") or "",
             "summary": v.get("shortDescription") or "",
@@ -284,7 +284,7 @@ _SEV_RANK = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1, "Information": 0, 
 def match(feed_records, findings, assets):
     """
     Match feed records against local data. Returns a list of alerts.
-    Keyed on CVE and product text — never on IP. Each alert references the
+    Keyed on CVE and product text, never on IP. Each alert references the
     affected findings/assets by their internal records for action, but that
     linkage stays entirely local.
     """
@@ -326,7 +326,7 @@ def match(feed_records, findings, assets):
                 if matched_findings or matched_assets:
                     reason = (f"Affects {prod}, which appears in your "
                               + ("findings" if matched_findings else "asset inventory")
-                              + (" (actively exploited — CISA KEV)" if rec["kev"] else ""))
+                              + (" (actively exploited, CISA KEV)" if rec["kev"] else ""))
                     break
         if not (matched_findings or matched_assets):
             continue

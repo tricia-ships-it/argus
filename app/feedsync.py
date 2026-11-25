@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-feedsync.py — standalone threat-feed downloader for air-gapped deployments.
+feedsync.py, standalone threat-feed downloader for air-gapped deployments.
 
 Run this on any INTERNET-CONNECTED machine (not your secure segment). It
 downloads the same public vulnerability feeds the app uses and writes a single

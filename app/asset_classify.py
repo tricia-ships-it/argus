@@ -1,5 +1,5 @@
 """
-asset_classify.py — normalise and classify imported assets, and decide scan
+asset_classify.py, normalise and classify imported assets, and decide scan
 eligibility.
 
 Two jobs:
@@ -7,10 +7,10 @@ Two jobs:
   2. Infer the asset *type* (IT / OT / IoT / BYOD / Personal / Network) from the
      hostname and description, and from that set a scan policy.
 
-SAFETY — the OT interlock:
+SAFETY, the OT interlock:
   Operational-technology / industrial-control gear (PLCs, SCADA, HMIs, RTUs,
   building-management systems, medical devices) can be disrupted or damaged by
-  active scanning. Anything classified OT — or that the user has tagged OT — is
+  active scanning. Anything classified OT, or that the user has tagged OT, is
   marked "do-not-actively-scan": the scanner will inventory it passively but
   never actively probe it. IoT gear is "scan with caution". This module only
   *recommends*; the user can override the type, but the scan governance in the
@@ -110,7 +110,7 @@ def classify(row):
         reason = "set by import"
     else:
         atype, kw = infer_type(hostname, desc, ip)
-        reason = f"matched '{kw}'" if kw else "no keyword matched — review"
+        reason = f"matched '{kw}'" if kw else "no keyword matched, review"
 
     policy = SCAN_POLICY.get(atype, "Review before scanning")
     return {

@@ -1,5 +1,5 @@
 """
-export_excel.py — build the .xlsx report from the app's findings, matching the
+export_excel.py, build the .xlsx report from the app's findings, matching the
 exact column structure and automation of the standalone template. Writes real
 formulas (INDEX/MATCH), so the delivered workbook stays live and auditable.
 Returns a BytesIO ready for send_file.

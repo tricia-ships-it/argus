@@ -28,27 +28,27 @@
       <div class="field full">
         <label>Targets</label>
         <textarea name="targets" required placeholder="10.100.72.0/24&#10;10.100.80.1-50"></textarea>
-        <span class="hint">IPs, ranges or CIDR — one per line or comma-separated.</span>
+        <span class="hint">IPs, ranges or CIDR, one per line or comma-separated.</span>
       </div>
       <div class="field">
         <label>Scan profile</label>
         <select name="profile">
           {% for key, p in scan_profiles.items() %}<option value="{{ key }}" {{ 'selected' if key=='standard' }}>{{ p.label }}</option>{% endfor %}
-          <option value="custom">Custom — use ports below</option>
+          <option value="custom">Custom, use ports below</option>
         </select>
       </div>
       <div class="field"><label>Ports <span class="muted">(custom only)</span></label><input name="ports" placeholder="22,80,443"></div>
       <div class="field">
         <label>Default classification</label>
         <select name="default_classification">
-          <option value="">— set per asset —</option>
+          <option value="">set per asset,</option>
           {% for s in severities %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
         </select>
       </div>
       <div class="field">
         <label>Default owner</label>
         <select name="default_owner">
-          <option value="">— unassigned —</option>
+          <option value="">unassigned,</option>
           {% for o in owners %}<option value="{{ o }}">{{ o }}</option>{% endfor %}
         </select>
       </div>
@@ -77,8 +77,8 @@
     <td class="mono" style="font-size:11.5px">{{ s.targets|truncate(50) }}</td>
     <td class="nowrap">{{ s.profile }}</td>
     <td class="nowrap">every {{ s.interval_hours }}h</td>
-    <td class="mono nowrap">{{ (s.next_run or '—')[:16].replace('T',' ') }}</td>
-    <td style="font-size:11.5px">{{ s.last_result or '— not run yet —' }}</td>
+    <td class="mono nowrap">{{ (s.next_run or '-')[:16].replace('T',' ') }}</td>
+    <td style="font-size:11.5px">{{ s.last_result or ', not run yet,' }}</td>
     <td class="nowrap">{% if s.enabled %}<span class="pill-ok">Enabled</span>{% else %}<span class="pill-warn">Paused</span>{% endif %}</td>
     <td class="nowrap">
       <form method="post" action="{{ url_for('schedule_run_now', sid=s.id) }}" style="display:inline"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="btn sm" type="submit" title="Run this schedule now">Run now</button></form>

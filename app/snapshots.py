@@ -3,10 +3,10 @@ Shareable dashboard snapshots.
 
 A snapshot is a plain-JSON file: an exported, read-only picture of a dashboard
 at one moment, meant to be handed to someone (possibly on a different network)
-and opened back inside Argus. It is the air-gap-safe way to share a dashboard —
+and opened back inside Argus. It is the air-gap-safe way to share a dashboard,
 no live connection, no account, nothing to reach back to.
 
-Security stance — the import side treats every byte as UNTRUSTED:
+Security stance, the import side treats every byte as UNTRUSTED:
   * JSON only. Never pickle, never eval, never exec. A snapshot carries data,
     not code.
   * Strict structure validation with a hard size cap. Unknown keys are dropped,
@@ -16,8 +16,8 @@ Security stance — the import side treats every byte as UNTRUSTED:
   * No markup is ever taken from a snapshot. Values are rendered as text and
     escaped by the template; charts are drawn from numbers only.
   * A SHA-256 over the data lets the viewer detect tampering. It is integrity,
-    not authentication — it says the numbers weren't changed in transit, not
-    who produced them — and the UI labels snapshots as "as reported by the
+    not authentication, it says the numbers weren't changed in transit, not
+    who produced them, and the UI labels snapshots as "as reported by the
     sender" accordingly.
 """
 
@@ -128,7 +128,7 @@ def parse(raw):
         try:
             raw = raw.decode("utf-8")
         except UnicodeDecodeError:
-            raise SnapshotError("File isn't text — not a snapshot.")
+            raise SnapshotError("File isn't text, not a snapshot.")
     elif len(raw) > MAX_BYTES:
         raise SnapshotError("File is too large to be a dashboard snapshot.")
     try:
@@ -165,11 +165,11 @@ def _self_test():
         "by_rto": {"Met": 1, "Breached": 4, "Open": 8}, "by_exploit": {"No": 7, "Yes": 5, "Unknown": 1},
         "open_vs_closed": {"Open": 8, "Fixed": 1}, "top_owners": [["Systems Team", 4], ["Platform Team", 3]],
     }
-    js = build(data, "PAIX — posture", "PAIX Argus", "patricia", "1.0", "2026-11-23T05:00:00")
+    js = build(data, "PAIX, posture", "PAIX Argus", "patricia", "1.0", "2026-11-23T05:00:00")
     got = parse(js)
     assert got["integrity_ok"] is True
     assert got["data"]["totals"]["total"] == 13
-    assert got["title"] == "PAIX — posture" and got["source"] == "PAIX Argus"
+    assert got["title"] == "PAIX, posture" and got["source"] == "PAIX Argus"
 
     # tampering flips integrity but still parses safely
     tampered = json.loads(js); tampered["data"]["totals"]["total"] = 999

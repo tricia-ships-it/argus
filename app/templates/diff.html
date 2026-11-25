@@ -4,13 +4,13 @@
 
 {% macro diff_row(r) %}
 <a class="diff-item" href="{{ url_for('finding_detail', fid=r.id) }}">
-  <span class="risk {{ r.actual_risk_classification or 'Information' }} sm">{{ r.actual_risk_classification or '—' }}</span>
+  <span class="risk {{ r.actual_risk_classification or 'Information' }} sm">{{ r.actual_risk_classification or '-' }}</span>
   <span class="diff-vuln">{{ r.vulnerability|truncate(70) }}<span class="muted mono diff-host">{{ r.ip_hostname }}</span></span>
 </a>
 {% endmacro %}
 
 <h1>Scan comparison</h1>
-<p class="lede">What changed between two assessments — new findings, resolved findings, and ones still recurring. Finding identity is matched on host + CVE (or vulnerability).</p>
+<p class="lede">What changed between two assessments, new findings, resolved findings, and ones still recurring. Finding identity is matched on host + CVE (or vulnerability).</p>
 
 <form class="toolbar" method="get">
   <label class="muted" style="font-size:12px">Baseline
@@ -44,7 +44,7 @@
   <div class="card diff-col new">
     <h3><span class="diff-dot new"></span>New <span class="count-badge">{{ result.new|length }}</span></h3>
     <div class="card-sub">Present now, not in the baseline</div>
-    {% for r in result.new %}{{ diff_row(r) }}{% else %}<p class="muted">None — nothing new since the baseline.</p>{% endfor %}
+    {% for r in result.new %}{{ diff_row(r) }}{% else %}<p class="muted">None, nothing new since the baseline.</p>{% endfor %}
   </div>
   <div class="card diff-col resolved">
     <h3><span class="diff-dot resolved"></span>Resolved <span class="count-badge">{{ result.resolved|length }}</span></h3>

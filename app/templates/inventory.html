@@ -38,11 +38,11 @@
 {% if not assets %}
 <div class="empty">
   <h3>No assets yet</h3>
-  <p>Import your asset sheet (Excel or CSV) to build the register. Download the template to see the expected columns — the tool auto-classifies each asset and flags OT gear as do-not-scan for you to confirm.</p>
+  <p>Import your asset sheet (Excel or CSV) to build the register. Download the template to see the expected columns, the tool auto-classifies each asset and flags OT gear as do-not-scan for you to confirm.</p>
   <a class="btn primary" href="{{ url_for('inventory_import') }}">Import assets</a>
 </div>
 {% else %}
-<div class="note" style="margin-bottom:12px">OT / industrial-control assets are marked <b>Do not actively scan</b> — the scanner will inventory them passively but never actively probe them. Change the type to adjust the policy. Personal / BYOD assets need an authoriser before they are scanned.</div>
+<div class="note" style="margin-bottom:12px">OT / industrial-control assets are marked <b>Do not actively scan</b>, the scanner will inventory them passively but never actively probe them. Change the type to adjust the policy. Personal / BYOD assets need an authoriser before they are scanned.</div>
 <div class="table-scroll"><table class="grid inv">
   <thead><tr>
     <th>IP</th><th>Hostname</th><th>Description</th><th>Criticality</th><th>Type</th>
@@ -54,11 +54,11 @@
       data-type="{{ a.asset_type }}" data-eligible="{{ 1 if a.scan_eligible else 0 }}"
       data-assessed="{{ 1 if a.assessed else 0 }}"
       data-review="{{ 1 if (not a.criticality or a.asset_type == 'Unknown') else 0 }}">
-    <td class="mono">{{ a.ip or '—' }}</td>
-    <td class="mono">{{ a.hostname or '—' }}</td>
+    <td class="mono">{{ a.ip or '-' }}</td>
+    <td class="mono">{{ a.hostname or '-' }}</td>
     <td class="desc">{{ a.description or '' }}</td>
     <td><select name="criticality" form="e{{ a.id }}" class="mini">
-      <option value="">—</option>
+      <option value="">-</option>
       {% for c in crits %}<option value="{{ c }}" {{ 'selected' if a.criticality==c }}>{{ c }}</option>{% endfor %}
     </select></td>
     <td><select name="asset_type" form="e{{ a.id }}" class="mini">
@@ -69,7 +69,7 @@
       {% elif 'caution' in a.scan_policy or 'authorisation' in a.scan_policy or 'Review' in a.scan_policy %}<span class="pol caution">{{ a.scan_policy }}</span>
       {% else %}<span class="pol ok">{{ a.scan_policy }}</span>{% endif %}
     </td>
-    <td><input type="text" name="authorized_by" form="e{{ a.id }}" class="mini" value="{{ a.authorized_by or '' }}" placeholder="—"
+    <td><input type="text" name="authorized_by" form="e{{ a.id }}" class="mini" value="{{ a.authorized_by or '' }}" placeholder="-"
         {% if a.authorized_at %}title="Authorised {{ a.authorized_at[:10] }}"{% endif %}></td>
     <td class="nowrap">{% if a.assessed %}<span class="pill-ok">Yes</span>{% else %}<span class="pill-warn">Never</span>{% endif %}</td>
     <td class="nowrap"><button class="btn sm" type="submit" form="e{{ a.id }}">Save</button></td>

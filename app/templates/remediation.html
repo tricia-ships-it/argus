@@ -24,7 +24,7 @@
   {% for g in groups %}
   <div class="panel rem-item">
     <div class="rem-head">
-      <span class="risk {{ g.max_sev }}">{{ g.max_sev or '—' }}</span>
+      <span class="risk {{ g.max_sev }}">{{ g.max_sev or '-' }}</span>
       <div class="rem-impact">
         Fixing this clears <b>{{ g.count }}</b> finding{{ '' if g.count == 1 else 's' }}
         across <b>{{ g.host_count }}</b> host{{ '' if g.host_count == 1 else 's' }}.

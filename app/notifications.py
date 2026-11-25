@@ -1,5 +1,5 @@
 """
-notifications.py — in-system notifications + assignment emails.
+notifications.py, in-system notifications + assignment emails.
 
 When a finding is assigned to an owner, the people behind that owner are
 notified two ways:
@@ -66,7 +66,7 @@ def notify_assignment(db, owner_name, finding, assigned_by, base_url="",
     """Notify everyone behind `owner_name` that `finding` was assigned to them.
 
     `finding` is a row/dict with id, ip_hostname, vulnerability, reported_risk.
-    Returns a summary dict. Never raises on email failure — in-app always lands.
+    Returns a summary dict. Never raises on email failure, in-app always lands.
     """
     recips = resolve_recipients(db, owner_name)
     res = {"recipients": 0, "in_app": 0, "emailed": 0, "errors": []}

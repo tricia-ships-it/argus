@@ -1,4 +1,4 @@
-/* app.js — interaction layer for Argus.
+/* app.js, interaction layer for Argus.
    Dependency-free, offline. Adds motion and keyboard-driven navigation without
    touching the server contract: count-up stats, scroll reveal, toasts, a
    command palette (Cmd/Ctrl-K) and shortcuts. Honors reduced-motion. */
