@@ -754,7 +754,7 @@ def _is_overdue(r):
 @app.route("/dashboard")
 @auth.login_required
 def dashboard():
-    return render_template("dashboard.html")
+    return render_template("dashboard.html", m=_overview_metrics(get_db()))
 
 
 @app.route("/dashboard/data")
@@ -938,6 +938,55 @@ def _dashboard_aggregates(db):
         "by_exploit": by_exploit,
         "top_owners": top_owners,
         "open_vs_closed": open_vs_closed,
+    }
+
+
+def _overview_metrics(db):
+    """Cross-domain numbers for the overview dashboard — not just findings but
+    assets, threats, scans, phishing and recent activity."""
+    agg = _dashboard_aggregates(db)
+    t = agg["totals"]
+
+    def scalar(sql, params=()):
+        row = db.execute(sql, params).fetchone()
+        return row[0] if row else 0
+
+    a_total = scalar("SELECT COUNT(*) FROM assets")
+    a_noscan = scalar("SELECT COUNT(*) FROM assets WHERE scan_eligible=0")
+    assessed = scalar(
+        "SELECT COUNT(*) FROM assets WHERE (ip != '' AND ip IN (SELECT ip_hostname FROM findings)) "
+        "OR (hostname != '' AND hostname IN (SELECT ip_hostname FROM findings))")
+    never_assessed = max(0, a_total - assessed)
+
+    feed_total = scalar("SELECT COUNT(*) FROM threat_feed")
+    kev_total = scalar("SELECT COUNT(*) FROM threat_feed WHERE kev=1")
+    src_enabled = scalar("SELECT COUNT(*) FROM threat_source WHERE enabled=1")
+    src_fail = scalar("SELECT COUNT(*) FROM threat_source_health WHERE status != 'ok' AND status IS NOT NULL")
+
+    last_scan = db.execute("SELECT name, scan_date FROM scans ORDER BY id DESC LIMIT 1").fetchone()
+    sched_on = scalar("SELECT COUNT(*) FROM scan_schedule WHERE enabled=1")
+
+    camp_total = scalar("SELECT COUNT(*) FROM phish_campaign")
+    camp_active = scalar("SELECT COUNT(*) FROM phish_campaign WHERE status='Active'")
+    last_camp = db.execute(
+        "SELECT name, status, created_at FROM phish_campaign ORDER BY id DESC LIMIT 1").fetchone()
+
+    acts = db.execute(
+        "SELECT a.action, a.detail, a.created_at, u.display_name, u.username "
+        "FROM activity a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 6").fetchall()
+
+    return {
+        "findings": t,
+        "by_status": agg["by_status"],
+        "assets": {"total": a_total, "do_not_scan": a_noscan, "never_assessed": never_assessed},
+        "threats": {"feed": feed_total, "kev": kev_total, "sources": src_enabled, "failing": src_fail},
+        "scans": {"last_name": last_scan["name"] if last_scan else None,
+                  "last_date": last_scan["scan_date"] if last_scan else None,
+                  "scheduled": sched_on},
+        "phishing": {"total": camp_total, "active": camp_active,
+                     "last_name": last_camp["name"] if last_camp else None,
+                     "last_status": last_camp["status"] if last_camp else None},
+        "activity": [dict(a) for a in acts],
     }
 
 

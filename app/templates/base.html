@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Argus{% endblock %}</title>
   <script>
-    // Apply saved theme before paint to avoid a flash. Default: dark.
+    // Apply saved theme + sidebar state before paint to avoid a flash.
     (function () {
       try {
-        var t = localStorage.getItem('vapt-theme');
-        if (!t) t = 'dark';  /* dark is the product's signature; toggle persists a choice */
+        var t = localStorage.getItem('vapt-theme') || 'dark';
         if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        if (localStorage.getItem('argus-sidebar') === 'collapsed') document.documentElement.classList.add('side-collapsed');
       } catch (e) {}
     })();
   </script>
@@ -21,111 +21,151 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+{% macro slink(href, label, active) %}
+<a class="side-link {{ 'active' if active }}" href="{{ href }}" title="{{ label }}">
+  <span class="side-ic">{{ caller() }}</span><span class="side-label">{{ label }}</span>
+</a>
+{% endmacro %}
   {% if current_user %}
-  <header class="topbar">
-    <div class="brand">
-      <img class="logo" src="{{ url_for('static', filename='argus-icon.svg') }}" alt="" width="30" height="30">
-      <span class="mark">Argus</span>
-    </div>
-    {% set ep = request.endpoint %}
-    {% set more_eps = ['assigned_to_me','assets','scan_diff','remediation','activity_feed','import_scan','schedules','schedule_add','owners','users','settings_page','settings','finding_new','shared_list','shared_view'] %}
-    <nav class="topnav">
-      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}">Dashboard</a>
-      <a href="{{ url_for('index') }}" class="{{ 'active' if ep in ['index','finding_detail'] }}">Findings</a>
-      <a href="{{ url_for('inventory') }}" class="{{ 'active' if ep in ['inventory','inventory_import','inventory_edit'] }}">Asset register</a>
-      <a href="{{ url_for('compliance_view') }}" class="{{ 'active' if ep == 'compliance_view' }}">Compliance</a>
-      <a href="{{ url_for('threatintel_view') }}" class="{{ 'active' if ep == 'threatintel_view' }}">Threats</a>
-      <a href="{{ url_for('phishing_view') }}" class="{{ 'active' if ep in ['phishing_view','phishing_new','phishing_campaign'] }}">Phishing</a>
-      <div class="nav-more" id="moreWrap">
-        <button type="button" class="nav-more-btn {{ 'active' if ep in more_eps or (ep and (ep.startswith('settings') or ep.startswith('schedule'))) }}" id="moreBtn" aria-haspopup="true" aria-expanded="false">
-          More <svg class="um-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+  {% set ep = request.endpoint %}
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="side-top">
+        <a class="side-brand" href="{{ url_for('dashboard') }}" title="Argus">
+          <img class="logo" src="{{ url_for('static', filename='argus-icon.svg') }}" alt="" width="30" height="30">
+          <span class="side-brand-name">Argus</span>
+        </a>
+        <button type="button" class="side-collapse" id="sideCollapse" aria-label="Collapse menu" title="Collapse menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
-        <div class="nav-menu" id="moreMenu" hidden role="menu">
-          <a class="nav-menu-item {{ 'active' if ep == 'assigned_to_me' }}" href="{{ url_for('assigned_to_me') }}">Assigned to me</a>
-          <a class="nav-menu-item {{ 'active' if ep == 'assets' }}" href="{{ url_for('assets') }}">Hosts at risk</a>
-          <a class="nav-menu-item {{ 'active' if ep == 'scan_diff' }}" href="{{ url_for('scan_diff') }}">Compare scans</a>
-          <a class="nav-menu-item {{ 'active' if ep == 'remediation' }}" href="{{ url_for('remediation') }}">Remediation plan</a>
-          <a class="nav-menu-item {{ 'active' if ep in ['shared_list','shared_view'] }}" href="{{ url_for('shared_list') }}">Shared dashboards</a>
-          <a class="nav-menu-item {{ 'active' if ep == 'activity_feed' }}" href="{{ url_for('activity_feed') }}">Activity log</a>
-          {% if can_import_or_scan %}
-          <div class="nav-menu-sep"></div>
-          <a class="nav-menu-item {{ 'active' if ep == 'finding_new' }}" href="{{ url_for('finding_new') }}">Add a finding</a>
-          <a class="nav-menu-item {{ 'active' if ep == 'import_scan' }}" href="{{ url_for('import_scan') }}">Import results</a>
-          <a class="nav-menu-item {{ 'active' if ep and ep.startswith('schedule') }}" href="{{ url_for('schedules') }}">Scheduled scans</a>
-          <a class="nav-menu-item {{ 'active' if ep == 'owners' }}" href="{{ url_for('owners') }}">Asset owners</a>
-          {% endif %}
-          {% if is_admin %}
-          <div class="nav-menu-sep"></div>
-          <a class="nav-menu-item {{ 'active' if ep == 'users' }}" href="{{ url_for('users') }}">Admin · users</a>
-          <a class="nav-menu-item {{ 'active' if ep and ep.startswith('settings') }}" href="{{ url_for('settings_page') }}">Settings</a>
-          {% endif %}
-        </div>
       </div>
-      {% if can_import_or_scan %}<a href="{{ url_for('scan_page') }}" class="primary">Run scan</a>{% endif %}
-    </nav>
-    <div class="usermenu">
-      <button type="button" class="um-btn" id="cmdkChip" title="Command palette (Ctrl K)" aria-label="Open command palette">
-        <svg class="um-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <span class="um-kbd">Ctrl K</span>
-      </button>
-      <button type="button" class="um-btn icon" id="themeToggle" title="Toggle light / dark" aria-label="Toggle light or dark theme">
-        <svg class="um-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3 a9 9 0 0 0 0 18 Z" fill="currentColor" stroke="none"/></svg>
-      </button>
-      <div class="um-bell" id="bellWrap">
-        <button type="button" class="um-btn icon" id="bellBtn" aria-haspopup="true" aria-expanded="false" title="Notifications" aria-label="Notifications">
-          <svg class="um-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          {% if notif_unread %}<span class="um-badge">{{ notif_unread if notif_unread < 10 else '9+' }}</span>{% endif %}
+
+      {% if can_import_or_scan %}
+      <a class="side-cta" href="{{ url_for('scan_page') }}" title="Run scan">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <span class="side-label">Run scan</span>
+      </a>
+      {% endif %}
+
+      <nav class="side-nav">
+        <div class="side-group">
+          {% call slink(url_for('dashboard'), 'Dashboard', ep == 'dashboard') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>{% endcall %}
+        </div>
+
+        <div class="side-group">
+          <div class="side-group-label">Work</div>
+          {% call slink(url_for('index'), 'Findings', ep in ['index','finding_detail']) %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>{% endcall %}
+          {% call slink(url_for('assigned_to_me'), 'Assigned to me', ep == 'assigned_to_me') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>{% endcall %}
+          {% call slink(url_for('inventory'), 'Asset register', ep in ['inventory','inventory_import','inventory_edit']) %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>{% endcall %}
+          {% call slink(url_for('assets'), 'Hosts at risk', ep == 'assets') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>{% endcall %}
+        </div>
+
+        <div class="side-group">
+          <div class="side-group-label">Analysis</div>
+          {% call slink(url_for('compliance_view'), 'Compliance', ep == 'compliance_view') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>{% endcall %}
+          {% call slink(url_for('remediation'), 'Remediation', ep == 'remediation') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.6 5.6L3 18.1V21h2.9l6.2-6.1a4 4 0 0 0 5.6-5.6l-2.6 2.6-2.4-.6-.6-2.4 2.6-2.6z"/></svg>{% endcall %}
+          {% call slink(url_for('scan_diff'), 'Compare scans', ep == 'scan_diff') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>{% endcall %}
+          {% call slink(url_for('threatintel_view'), 'Threats', ep == 'threatintel_view') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>{% endcall %}
+        </div>
+
+        <div class="side-group">
+          <div class="side-group-label">Awareness</div>
+          {% call slink(url_for('phishing_view'), 'Phishing', ep in ['phishing_view','phishing_new','phishing_campaign']) %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg>{% endcall %}
+        </div>
+
+        {% if can_import_or_scan %}
+        <div class="side-group">
+          <div class="side-group-label">Manage</div>
+          {% call slink(url_for('import_scan'), 'Import results', ep == 'import_scan') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>{% endcall %}
+          {% call slink(url_for('schedules'), 'Scheduled scans', ep and ep.startswith('schedule')) %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>{% endcall %}
+          {% call slink(url_for('owners'), 'Asset owners', ep == 'owners') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>{% endcall %}
+          {% call slink(url_for('shared_list'), 'Shared dashboards', ep in ['shared_list','shared_view']) %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>{% endcall %}
+          {% call slink(url_for('activity_feed'), 'Activity log', ep == 'activity_feed') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>{% endcall %}
+        </div>
+        {% endif %}
+
+        {% if is_admin %}
+        <div class="side-group">
+          <div class="side-group-label">Admin</div>
+          {% call slink(url_for('users'), 'Users', ep == 'users') %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>{% endcall %}
+          {% call slink(url_for('settings_page'), 'Settings', ep and ep.startswith('settings')) %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>{% endcall %}
+        </div>
+        {% endif %}
+      </nav>
+    </aside>
+    <div class="side-scrim" id="sideScrim" aria-hidden="true"></div>
+
+    <div class="main-col">
+      <header class="topbar">
+        <button type="button" class="side-toggle" id="sideToggle" aria-label="Open menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <div class="um-menu notif-menu" id="bellMenu" hidden role="menu">
-          <div class="um-menu-head notif-head">
-            <span class="um-menu-name">Notifications</span>
-            {% if notif_unread %}
-            <form method="post" action="{{ url_for('notifications_read_all') }}" style="margin:0">
-              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-              <button class="btn xs ghost" type="submit">Mark all read</button>
-            </form>
-            {% endif %}
+        <div class="top-title">{% block page_label %}{% endblock %}</div>
+        <div class="usermenu">
+          <button type="button" class="um-btn" id="cmdkChip" title="Command palette (Ctrl K)" aria-label="Open command palette">
+            <svg class="um-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span class="um-kbd">Ctrl K</span>
+          </button>
+          <button type="button" class="um-btn icon" id="themeToggle" title="Toggle light / dark" aria-label="Toggle light or dark theme">
+            <svg class="um-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3 a9 9 0 0 0 0 18 Z" fill="currentColor" stroke="none"/></svg>
+          </button>
+          <div class="um-bell" id="bellWrap">
+            <button type="button" class="um-btn icon" id="bellBtn" aria-haspopup="true" aria-expanded="false" title="Notifications" aria-label="Notifications">
+              <svg class="um-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              {% if notif_unread %}<span class="um-badge">{{ notif_unread if notif_unread < 10 else '9+' }}</span>{% endif %}
+            </button>
+            <div class="um-menu notif-menu" id="bellMenu" hidden role="menu">
+              <div class="um-menu-head notif-head">
+                <span class="um-menu-name">Notifications</span>
+                {% if notif_unread %}
+                <form method="post" action="{{ url_for('notifications_read_all') }}" style="margin:0">
+                  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                  <button class="btn xs ghost" type="submit">Mark all read</button>
+                </form>
+                {% endif %}
+              </div>
+              {% for n in notif_items %}
+              <a class="notif-item {{ 'unread' if not n.read }}" href="{{ url_for('notification_open', nid=n.id) }}">
+                <span class="notif-title">{{ n.title }}</span>
+                <span class="notif-body">{{ n.body }}</span>
+                <span class="notif-time">{{ (n.created_at or '')[:16].replace('T',' ') }}</span>
+              </a>
+              {% else %}
+              <div class="notif-empty">No notifications yet.</div>
+              {% endfor %}
+              <a class="notif-foot" href="{{ url_for('assigned_to_me') }}">View everything assigned to me →</a>
+            </div>
           </div>
-          {% for n in notif_items %}
-          <a class="notif-item {{ 'unread' if not n.read }}" href="{{ url_for('notification_open', nid=n.id) }}">
-            <span class="notif-title">{{ n.title }}</span>
-            <span class="notif-body">{{ n.body }}</span>
-            <span class="notif-time">{{ (n.created_at or '')[:16].replace('T',' ') }}</span>
-          </a>
-          {% else %}
-          <div class="notif-empty">No notifications yet.</div>
-          {% endfor %}
-          <a class="notif-foot" href="{{ url_for('assigned_to_me') }}">View everything assigned to me →</a>
-        </div>
-      </div>
-      <span class="um-div" aria-hidden="true"></span>
-      <div class="um-acct" id="acctWrap">
-        <button type="button" class="um-account" id="acctBtn" aria-haspopup="true" aria-expanded="false">
-          <span class="um-avatar">{{ (current_user.display_name or current_user.username)[:1]|upper }}</span>
-          <span class="um-id">
-            <span class="uname">{{ current_user.display_name or current_user.username }}</span>
-            <span class="urole">{{ role_labels.get(current_user.role, current_user.role) }}</span>
-          </span>
-          <svg class="um-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>
-        <div class="um-menu" id="acctMenu" hidden role="menu">
-          <div class="um-menu-head">
-            <span class="um-menu-name">{{ current_user.display_name or current_user.username }}</span>
-            {% if current_user.email %}<span class="um-menu-sub">{{ current_user.email }}</span>{% endif %}
+          <span class="um-div" aria-hidden="true"></span>
+          <div class="um-acct" id="acctWrap">
+            <button type="button" class="um-account" id="acctBtn" aria-haspopup="true" aria-expanded="false">
+              <span class="um-avatar">{{ (current_user.display_name or current_user.username)[:1]|upper }}</span>
+              <span class="um-id">
+                <span class="uname">{{ current_user.display_name or current_user.username }}</span>
+                <span class="urole">{{ role_labels.get(current_user.role, current_user.role) }}</span>
+              </span>
+              <svg class="um-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="um-menu" id="acctMenu" hidden role="menu">
+              <div class="um-menu-head">
+                <span class="um-menu-name">{{ current_user.display_name or current_user.username }}</span>
+                {% if current_user.email %}<span class="um-menu-sub">{{ current_user.email }}</span>{% endif %}
+              </div>
+              <a href="{{ url_for('change_password') }}" class="um-menu-item" role="menuitem">Change password</a>
+              <a href="{{ url_for('logout') }}" class="um-menu-item danger" role="menuitem">Sign out</a>
+            </div>
           </div>
-          <a href="{{ url_for('change_password') }}" class="um-menu-item" role="menuitem">Change password</a>
-          <a href="{{ url_for('logout') }}" class="um-menu-item danger" role="menuitem">Sign out</a>
         </div>
-      </div>
+      </header>
+      <main class="wrap">
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
+        {% endwith %}
+        {% block body %}{% endblock %}
+      </main>
     </div>
-  </header>
+  </div>
   {% endif %}
-  <main class="wrap">
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
-    {% endwith %}
-    {% block body %}{% endblock %}
-  </main>
   <script>
     // Theme toggle: switch, persist, and notify charts to redraw.
     (function () {
@@ -139,13 +179,27 @@
       });
       function save(v) { try { localStorage.setItem('vapt-theme', v); } catch (e) {} }
     })();
+    // Sidebar: desktop collapse (persisted) + mobile off-canvas open/close.
+    (function () {
+      var root = document.documentElement;
+      var collapse = document.getElementById('sideCollapse');
+      var toggle = document.getElementById('sideToggle');
+      var scrim = document.getElementById('sideScrim');
+      if (collapse) collapse.addEventListener('click', function () {
+        var now = root.classList.toggle('side-collapsed');
+        try { localStorage.setItem('argus-sidebar', now ? 'collapsed' : 'expanded'); } catch (e) {}
+      });
+      function openMobile() { root.classList.add('side-open'); }
+      function closeMobile() { root.classList.remove('side-open'); }
+      if (toggle) toggle.addEventListener('click', openMobile);
+      if (scrim) scrim.addEventListener('click', closeMobile);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMobile(); });
+    })();
     // Header dropdowns (account + notifications): open on click, close on
     // outside click or Escape; opening one closes the other.
     (function () {
-      var drops = [['acctWrap', 'acctBtn', 'acctMenu'], ['bellWrap', 'bellBtn', 'bellMenu'], ['moreWrap', 'moreBtn', 'moreMenu']]
-        .map(function (ids) {
-          return { wrap: document.getElementById(ids[0]), btn: document.getElementById(ids[1]), menu: document.getElementById(ids[2]) };
-        })
+      var drops = [['acctWrap', 'acctBtn', 'acctMenu'], ['bellWrap', 'bellBtn', 'bellMenu']]
+        .map(function (ids) { return { wrap: document.getElementById(ids[0]), btn: document.getElementById(ids[1]), menu: document.getElementById(ids[2]) }; })
         .filter(function (d) { return d.wrap && d.btn && d.menu; });
       function closeAll(except) {
         drops.forEach(function (d) { if (d !== except) { d.menu.hidden = true; d.btn.setAttribute('aria-expanded', 'false'); } });

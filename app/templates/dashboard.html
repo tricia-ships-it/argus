@@ -1,11 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · Argus{% endblock %}
+{% block title %}Overview · Argus{% endblock %}
+{% block page_label %}Overview{% endblock %}
 {% block body %}
 
 <div class="page-head">
   <div>
-    <h1>Dashboard</h1>
-    <p class="lede">A visual summary of this quarter's assessment — risk posture, remediation progress and where attention is needed. Updates live from the register.</p>
+    <h1>Overview</h1>
+    <p class="lede">The whole programme at a glance — risk posture, remediation, assets, threats and awareness. Updates live from the register.</p>
   </div>
   <div class="head-actions">
     <a class="btn ghost" href="{{ url_for('shared_list') }}">Shared with me</a>
@@ -13,110 +14,132 @@
   </div>
 </div>
 
-<div id="dash-root">
-  <div class="dash-empty">Loading charts…</div>
+{% set f = m.findings %}
+{% if f.total == 0 and m.assets.total == 0 %}
+<div class="empty">
+  <h3>Let's get Argus populated</h3>
+  <p>Import your asset register, run a scan, or import scan results — the overview fills in automatically as data arrives.</p>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+    {% if can_import_or_scan %}<a class="btn primary" href="{{ url_for('scan_page') }}">Run a scan</a>
+    <a class="btn" href="{{ url_for('inventory') }}">Import assets</a>
+    <a class="btn" href="{{ url_for('import_scan') }}">Import scan results</a>{% endif %}
+  </div>
+</div>
+{% else %}
+
+<!-- KPI strip -->
+<div class="ov-kpis">
+  <a class="card ov-kpi" href="{{ url_for('index') }}">
+    <div class="ov-kpi-n count" data-count="{{ f.total }}">{{ f.total }}</div>
+    <div class="ov-kpi-l">Total findings</div>
+  </a>
+  <a class="card ov-kpi crit" href="{{ url_for('index') }}?risk=Critical">
+    <div class="ov-kpi-n count" data-count="{{ f.critical + f.high }}">{{ f.critical + f.high }}</div>
+    <div class="ov-kpi-l">Critical + High (open risk)</div>
+  </a>
+  <a class="card ov-kpi breach" href="{{ url_for('index') }}?breach=1">
+    <div class="ov-kpi-n count" data-count="{{ f.breached }}">{{ f.breached }}</div>
+    <div class="ov-kpi-l">SLA breached</div>
+  </a>
+  <div class="card ov-kpi">
+    <div class="ov-kpi-n" style="color:var(--met)">{{ f.remediation_rate }}%</div>
+    <div class="ov-kpi-l">Remediation rate</div>
+    <div class="mini-meter"><span style="width:{{ f.remediation_rate }}%"></span></div>
+  </div>
 </div>
 
-{% endblock %}
-{% block scripts %}
+<!-- posture + attention -->
+<div class="dash-grid">
+  <div class="card col-4">
+    <h3>Actual risk</h3>
+    <div class="card-sub">Severity after asset criticality + exploit</div>
+    <div id="c-risk"></div>
+  </div>
+  <div class="card col-4">
+    <h3>Remediation status</h3>
+    <div class="card-sub">Where every finding stands now</div>
+    <div id="c-status"></div>
+  </div>
+  <div class="card col-4">
+    <h3>Needs attention</h3>
+    <div class="card-sub">Where to look first</div>
+    <ul class="ov-attention">
+      <li><a href="{{ url_for('index') }}"><span class="ov-at-n crit">{{ f.overdue }}</span> Past target fix date</a></li>
+      <li><a href="{{ url_for('index') }}?breach=1"><span class="ov-at-n breach">{{ f.breached }}</span> Risk tolerance breached</a></li>
+      <li><a href="{{ url_for('inventory') }}"><span class="ov-at-n warn">{{ m.assets.never_assessed }}</span> Assets never assessed</a></li>
+      <li><a href="{{ url_for('threatintel_view') }}"><span class="ov-at-n {{ 'crit' if m.threats.failing else 'ok' }}">{{ m.threats.failing }}</span> Threat sources failing</a></li>
+    </ul>
+  </div>
+</div>
+
+<!-- domain summary cards -->
+<div class="dash-grid">
+  <a class="card col-3 ov-sec" href="{{ url_for('inventory') }}">
+    <h3>Assets</h3>
+    <div class="ov-sec-big">{{ m.assets.total }}</div>
+    <div class="ov-sec-rows">
+      <span>{{ m.assets.do_not_scan }} protected (do-not-scan)</span>
+      <span>{{ m.assets.never_assessed }} never assessed</span>
+    </div>
+  </a>
+  <a class="card col-3 ov-sec" href="{{ url_for('threatintel_view') }}">
+    <h3>Threat intel</h3>
+    <div class="ov-sec-big">{{ m.threats.kev }}<span class="ov-sec-unit"> KEV</span></div>
+    <div class="ov-sec-rows">
+      <span>{{ m.threats.feed }} advisories in feed</span>
+      <span>{{ m.threats.sources }} source{{ '' if m.threats.sources == 1 else 's' }}{% if m.threats.failing %} · <b style="color:var(--high)">{{ m.threats.failing }} failing</b>{% endif %}</span>
+    </div>
+  </a>
+  <a class="card col-3 ov-sec" href="{{ url_for('phishing_view') }}">
+    <h3>Phishing</h3>
+    <div class="ov-sec-big">{{ m.phishing.total }}</div>
+    <div class="ov-sec-rows">
+      <span>{{ m.phishing.active }} active now</span>
+      <span>{% if m.phishing.last_name %}Latest: {{ m.phishing.last_name|truncate(26) }}{% else %}No campaigns yet{% endif %}</span>
+    </div>
+  </a>
+  <a class="card col-3 ov-sec" href="{{ url_for('scan_diff') }}">
+    <h3>Scans</h3>
+    <div class="ov-sec-big">{{ m.scans.scheduled }}<span class="ov-sec-unit"> scheduled</span></div>
+    <div class="ov-sec-rows">
+      <span>{% if m.scans.last_date %}Last: {{ m.scans.last_date }}{% else %}No scans yet{% endif %}</span>
+      <span>{% if m.scans.last_name %}{{ m.scans.last_name|truncate(26) }}{% endif %}</span>
+    </div>
+  </a>
+</div>
+
+<!-- recent activity -->
+<div class="card">
+  <h3>Recent activity</h3>
+  {% if m.activity %}
+  <ul class="ov-activity">
+    {% for a in m.activity %}
+    <li>
+      <span class="ov-act-who">{{ a.display_name or a.username or 'Someone' }}</span>
+      <span class="ov-act-what">{{ a.action }}{% if a.detail %} — {{ a.detail|truncate(80) }}{% endif %}</span>
+      <span class="ov-act-when">{{ (a.created_at or '')[:16].replace('T',' ') }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <a class="btn ghost sm" href="{{ url_for('activity_feed') }}" style="margin-top:10px">View full activity log</a>
+  {% else %}
+  <p class="muted">No activity recorded yet.</p>
+  {% endif %}
+</div>
+
 <script src="{{ url_for('static', filename='charts.js') }}"></script>
 <script>
-async function loadDashboard() {
-  const root = document.getElementById('dash-root');
-  let d;
-  try {
-    const res = await fetch('{{ url_for("dashboard_data") }}');
-    d = await res.json();
-  } catch (e) {
-    root.innerHTML = '<div class="dash-empty">Could not load dashboard data.</div>';
-    return;
-  }
-  if (!d.totals.total) {
-    root.innerHTML = '<div class="dash-empty"><h3 style="color:var(--ink)">No findings yet</h3>'
-      + '<p>Import a scan or run the built-in scanner to populate the dashboard.</p></div>';
-    return;
-  }
-
-  const t = d.totals;
-  const FIND = "{{ url_for('index') }}";
-  root.innerHTML = `
-    <div class="dash-grid">
-      <a class="card col-3 kpi" href="${FIND}" title="View all findings"><div class="kpi-n count" data-count="${t.total}">${t.total}</div><div class="kpi-l">Total findings</div></a>
-      <a class="card col-3 kpi crit" href="${FIND}?risk=Critical" title="View critical findings"><div class="kpi-n count" data-count="${t.critical}">${t.critical}</div><div class="kpi-l">Critical (actual risk)</div></a>
-      <a class="card col-3 kpi high" href="${FIND}?risk=High" title="View high findings"><div class="kpi-n count" data-count="${t.high}">${t.high}</div><div class="kpi-l">High (actual risk)</div></a>
-      <a class="card col-3 kpi breach" href="${FIND}?breach=1" title="View breached findings"><div class="kpi-n count" data-count="${t.breached}">${t.breached}</div><div class="kpi-l">Risk tolerance breached</div></a>
-
-      <div class="card col-4">
-        <h3>Actual risk classification</h3>
-        <div class="card-sub">Severity after asset criticality + exploit</div>
-        <div id="c-risk"></div>
-      </div>
-      <div class="card col-4">
-        <h3>Remediation status</h3>
-        <div class="card-sub">Where every finding stands right now</div>
-        <div id="c-status"></div>
-      </div>
-      <div class="card col-4">
-        <h3>Risk tolerance objective</h3>
-        <div class="card-sub">Met vs breached vs not yet resolved</div>
-        <div id="c-rto"></div>
-      </div>
-
-      <div class="card col-6">
-        <h3>Remediation progress</h3>
-        <div class="card-sub">${t.fixed} fixed, ${t.open} open${t.overdue ? ', <span style="color:var(--high)">' + t.overdue + ' past target date</span>' : ''}</div>
-        <div style="display:flex;align-items:baseline;gap:10px;margin-top:4px">
-          <span class="kpi-n" style="color:var(--met);font-family:var(--mono);font-size:30px;font-weight:600">${t.remediation_rate}%</span>
-          <span style="font-size:12px;color:var(--ink-dim)">resolved</span>
-        </div>
-        <div class="meter"><span style="width:${t.remediation_rate}%"></span></div>
-        <div id="c-openclosed" style="margin-top:18px"></div>
-      </div>
-      <div class="card col-6">
-        <h3>Findings by asset owner</h3>
-        <div class="card-sub">Who holds the most open work</div>
-        <div id="c-owners"></div>
-      </div>
-
-      <div class="card col-6">
-        <h3>Reported severity (scanner)</h3>
-        <div class="card-sub">As the scan engine rated each finding</div>
-        <div id="c-reported"></div>
-      </div>
-      <div class="card col-6">
-        <h3>Exploit availability</h3>
-        <div class="card-sub">Public exploit known for the vulnerability</div>
-        <div id="c-exploit"></div>
-      </div>
-    </div>`;
-
-  if (window.vaptEnhance) window.vaptEnhance(root);
-
-  const toArr = (obj) => Object.keys(obj).map(k => ({label: k, value: obj[k]})).filter(x => x.value > 0);
-
-  // Donuts
-  VChart.donut(document.getElementById('c-risk'), toArr(d.by_actual_risk), {centerLabelText: 'findings'});
-  VChart.donut(document.getElementById('c-rto'),
-    [ {label:'Met', value:d.by_rto.Met}, {label:'Breached', value:d.by_rto.Breached},
-      {label:'Not Applicable', value:d.by_rto['Not Applicable']}, {label:'Open', value:d.by_rto.Open} ].filter(x=>x.value>0),
-    {centerValue: d.by_rto.Breached, centerLabelText: 'breached'});
-  VChart.donut(document.getElementById('c-exploit'), toArr(d.by_exploit), {centerLabelText: 'findings'});
-
-  // Bars
-  VChart.hbars(document.getElementById('c-status'),
-    Object.keys(d.by_status).map(k => ({label:k, value:d.by_status[k]})), {byLabel: true});
-  VChart.hbars(document.getElementById('c-reported'),
-    toArr(d.by_reported), {byLabel: true});
-  VChart.hbars(document.getElementById('c-owners'),
-    d.top_owners.map(o => ({label:o[0], value:o[1]})), {});
-  VChart.hbars(document.getElementById('c-openclosed'),
-    [ {label:'Open', value:d.open_vs_closed.Open},
-      {label:'Fixed', value:d.open_vs_closed.Fixed},
-      {label:'Not Applicable', value:d.open_vs_closed['Not Applicable']} ].filter(x=>x.value>0),
-    {byLabel: true});
+function loadPosture() {
+  fetch("{{ url_for('dashboard_data') }}").then(r => r.json()).then(d => {
+    const toArr = (obj) => Object.keys(obj).map(k => ({label: k, value: obj[k]})).filter(x => x.value > 0);
+    const risk = document.getElementById('c-risk');
+    const status = document.getElementById('c-status');
+    if (risk) VChart.donut(risk, toArr(d.by_actual_risk), {centerLabelText: 'findings'});
+    if (status) VChart.hbars(status, Object.keys(d.by_status).map(k => ({label:k, value:d.by_status[k]})), {byLabel: true});
+  }).catch(() => {});
 }
-loadDashboard();
-// redraw when the theme changes so chart colours follow
-window.addEventListener('themechange', loadDashboard);
+loadPosture();
+window.addEventListener('themechange', loadPosture);
 </script>
+{% endif %}
 {% endblock %}
