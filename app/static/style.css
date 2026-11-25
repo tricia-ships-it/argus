@@ -150,13 +150,38 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 .topnav a.primary:hover { filter: brightness(1.07); }
 
 /* user menu */
-.usermenu { display: flex; align-items: center; gap: 12px; padding-left: 14px; margin-left: 10px; border-left: 1px solid var(--line); }
-.usermenu .uname { font-size: 13px; font-weight: 600; color: var(--ink); }
-.usermenu .urole { font-size: 10.5px; color: var(--ink-faint); font-family: var(--mono); }
-.usermenu .umlink { font-size: 12px; color: var(--ink-dim); }
-.usermenu .umlink:hover { color: var(--ink); }
+.usermenu { display: flex; align-items: center; gap: 8px; padding-left: 16px; margin-left: 8px; border-left: 1px solid var(--line); }
+.um-btn {
+  display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2);
+  color: var(--ink-dim); cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.um-btn.icon { width: 32px; padding: 0; justify-content: center; }
+.um-btn:hover { color: var(--ink); border-color: var(--accent-dim); background: var(--panel); }
+.um-ic { width: 15px; height: 15px; display: block; }
+.um-kbd { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: .3px; white-space: nowrap; }
+.um-div { width: 1px; height: 26px; background: var(--line); flex-shrink: 0; }
+.um-account { display: flex; align-items: center; gap: 9px; }
+.um-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; letter-spacing: .2px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+  box-shadow: 0 1px 8px -3px var(--glow);
+}
+.um-id { display: flex; flex-direction: column; line-height: 1.18; }
+.usermenu .uname { font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.usermenu .urole { font-size: 9.5px; color: var(--ink-faint); font-family: var(--mono); text-transform: uppercase; letter-spacing: .5px; }
+.usermenu .umlink { font-size: 12px; color: var(--ink-dim); padding: 6px 9px; border-radius: 7px;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease); white-space: nowrap; }
+.usermenu .umlink:hover { color: var(--ink); background: var(--panel-2); text-decoration: none; }
+.usermenu .umlink.danger:hover { color: var(--high); background: color-mix(in srgb, var(--high) 12%, transparent); }
+@media (max-width: 900px) {
+  .um-kbd { display: none; }
+}
 @media (max-width: 760px) {
-  .usermenu .urole { display: none; }
+  .usermenu .um-id { display: none; }
   .topbar { flex-wrap: wrap; height: auto; padding-top: 8px; padding-bottom: 8px; gap: 10px; }
 }
 
