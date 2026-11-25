@@ -87,7 +87,7 @@
     </table>
     </div>
     {% else %}
-    <div class="note">No recipients yet.</div>
+    <div class="note">No recipients yet. Add them in the box just below, then Launch.</div>
     {% endif %}
 
     {% if can_manage and c.status != 'Closed' %}
@@ -95,7 +95,7 @@
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <div class="field">
         <label for="recipients">Add recipients, <span class="muted">one per line. Mix any of: name, email, <span class="mono">+phone</span>, <span class="mono">@handle</span>, department in any order</span></label>
-        <textarea id="recipients" name="recipients" rows="4" placeholder="Alex Mensah, alex@company.example, Finance&#10;Jordan Owusu, +233201234567&#10;Ama Boateng, @ama.b, ama@company.example"></textarea>
+        <textarea id="recipients" name="recipients" rows="4" {{ 'autofocus' if not recips }} placeholder="Alex Mensah, alex@company.example, Finance&#10;Jordan Owusu, +233201234567&#10;Ama Boateng, @ama.b, ama@company.example"></textarea>
       </div>
       <div class="field">
         <label for="group">Add to group <span class="muted">(optional), e.g. Finance, IT, Executives. Lets you send to just this group later.</span></label>
