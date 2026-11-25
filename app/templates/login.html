@@ -9,7 +9,7 @@
 <body>
   <div class="login-wrap">
     <div class="login-card">
-      <div class="login-brand"><b>//</b> Argus</div>
+      <div class="login-brand"><img src="{{ url_for('static', filename='argus-icon.svg') }}" alt="" width="40" height="40"> Argus</div>
       <div class="login-sub">Sign in with your account to view findings and track remediation.</div>
       {% with messages = get_flashed_messages() %}
         {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}

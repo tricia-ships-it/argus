@@ -24,7 +24,8 @@
   {% if current_user %}
   <header class="topbar">
     <div class="brand">
-      <span class="mark"><b>//</b> Argus</span>
+      <img class="logo" src="{{ url_for('static', filename='argus-icon.svg') }}" alt="" width="30" height="30">
+      <span class="mark">Argus</span>
       <span class="tag">internal · offline</span>
     </div>
     {% set ep = request.endpoint %}

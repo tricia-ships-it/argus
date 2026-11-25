@@ -107,24 +107,11 @@ def init_auth_schema(db):
     db.commit()
 
 
-def bootstrap_admin(db):
-    """
-    On first run (no users), create an 'admin' account with a random one-time
-    password and return it so the launcher can print it. Returns None if users
-    already exist.
-    """
-    n = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if n:
-        return None
-    pw = secrets.token_urlsafe(9)
-    db.execute(
-        "INSERT INTO users(username, display_name, email, password_hash, role, active, must_change_pw, created_at) "
-        "VALUES (?,?,?,?,?,1,1,?)",
-        ("admin", "Administrator", "", generate_password_hash(pw), "admin",
-         datetime.now().isoformat(timespec="seconds")),
-    )
-    db.commit()
-    return pw
+def needs_setup(db):
+    """True when no accounts exist yet — the app should run first-run setup so
+    the first administrator creates their own profile (rather than being handed
+    a generated password)."""
+    return db.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -147,14 +134,18 @@ def verify_login(db, username, password):
     return None
 
 
-def create_user(db, username, display_name, email, password, role):
-    db.execute(
+def create_user(db, username, display_name, email, password, role, must_change=True):
+    """Create an account. By default the user must change their password at
+    first sign-in (must_change=True) — used for admin-created teammate accounts.
+    First-run setup passes must_change=False, since the admin just chose it."""
+    cur = db.execute(
         "INSERT INTO users(username, display_name, email, password_hash, role, active, must_change_pw, created_at) "
-        "VALUES (?,?,?,?,?,1,0,?)",
+        "VALUES (?,?,?,?,?,1,?,?)",
         (username, display_name, email, generate_password_hash(password), role,
-         datetime.now().isoformat(timespec="seconds")),
+         1 if must_change else 0, datetime.now().isoformat(timespec="seconds")),
     )
     db.commit()
+    return cur.lastrowid
 
 
 def set_password(db, user_id, password, clear_must_change=True):

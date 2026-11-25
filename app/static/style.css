@@ -123,13 +123,14 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
   border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 20;
 }
-.brand { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; flex-shrink: 0; }
+.brand { display: flex; align-items: center; gap: 9px; white-space: nowrap; flex-shrink: 0; }
+.brand .logo { width: 30px; height: 30px; border-radius: 8px; display: block; flex-shrink: 0; }
 .brand .mark {
   font-family: var(--mono); font-weight: 600; font-size: 15px;
   color: var(--ink); letter-spacing: -0.3px; white-space: nowrap;
 }
 .brand .mark b { color: var(--accent); }
-.brand .tag { font-size: 11px; color: var(--ink-faint); font-family: var(--mono); }
+.brand .tag { font-size: 11px; color: var(--ink-faint); font-family: var(--mono); align-self: center; }
 .topnav { display: flex; gap: 4px; margin-left: auto; }
 .topnav a {
   padding: 7px 13px; border-radius: var(--radius); color: var(--ink-dim);
@@ -162,7 +163,9 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 /* login */
 .login-wrap { max-width: 380px; margin: 8vh auto 0; }
 .login-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 30px; }
-.login-brand { font-family: var(--mono); font-weight: 600; font-size: 18px; margin-bottom: 4px; }
+.login-brand { font-family: var(--mono); font-weight: 600; font-size: 20px; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 10px; }
+.login-brand img { width: 40px; height: 40px; border-radius: 10px; display: block; }
 .login-brand b { color: var(--accent); }
 .login-sub { color: var(--ink-dim); font-size: 13px; margin-bottom: 22px; }
 .login-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }

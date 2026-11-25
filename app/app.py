@@ -95,6 +95,17 @@ def _csrf_protect():
         abort(400, description="Invalid or missing CSRF token. Reload the page and try again.")
 
 
+@app.before_request
+def _require_first_run_setup():
+    # Until the first account exists, send everything to the setup page so the
+    # admin can create their own profile. Static assets and the setup endpoint
+    # itself are exempt.
+    if request.endpoint in ("setup", "static") or request.endpoint is None:
+        return
+    if auth.needs_setup(get_db()):
+        return redirect(url_for("setup"))
+
+
 @app.after_request
 def _security_headers(resp):
     # The same headers the scanner flags when missing on a host — set them here.
@@ -298,11 +309,11 @@ def init_db():
         for n in ["Network Team", "Systems Team", "Security Team", "Unassigned"]:
             db.execute("INSERT OR IGNORE INTO asset_owners(name) VALUES (?)", (n,))
     db.commit()
-    # auth tables + first-run admin
+    # auth tables — the first administrator is created via first-run web setup
     auth.init_auth_schema(db)
-    pw = auth.bootstrap_admin(db)
+    setup_needed = auth.needs_setup(db)
     db.close()
-    return pw  # one-time admin password on first run, else None
+    return setup_needed  # True on a brand-new install (no accounts yet)
 
 
 @app.context_processor
@@ -399,6 +410,39 @@ def _safe_next(target):
     if not target.startswith("/"):
         return None
     return target
+
+
+@app.route("/setup", methods=["GET", "POST"])
+def setup():
+    db = get_db()
+    # Setup is only available before the first account exists.
+    if not auth.needs_setup(db):
+        return redirect(url_for("login"))
+    if request.method == "POST":
+        display = request.form.get("display_name", "").strip()
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip()
+        pw = request.form.get("password", "")
+        pw2 = request.form.get("confirm", "")
+        err = None
+        if not display or not username:
+            err = "Please provide your name and a username."
+        elif " " in username:
+            err = "Username can't contain spaces."
+        elif len(pw) < 8:
+            err = "Password must be at least 8 characters."
+        elif pw != pw2:
+            err = "The two passwords don't match."
+        if err:
+            flash(err)
+            return render_template("setup.html", form=request.form)
+        uid = auth.create_user(db, username, display, email, pw, "admin", must_change=False)
+        u = auth.get_user(db, uid)
+        auth.login_user(u)
+        auth.log_activity(db, uid, None, "setup", "First-run administrator account created")
+        flash("Welcome to Argus — your administrator account is ready.")
+        return redirect(url_for("index"))
+    return render_template("setup.html", form={})
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -3031,7 +3075,7 @@ def export_pdf():
 
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    admin_pw = init_db()
+    setup_needed = init_db()
     _ensure_send_worker()   # resume scheduled / interrupted send jobs
     _ensure_scan_scheduler()  # recurring network-only scans
     ap = argparse.ArgumentParser()
@@ -3039,13 +3083,13 @@ if __name__ == "__main__":
     ap.add_argument("--port", type=int, default=5000)
     ap.add_argument("--debug", action="store_true")
     args = ap.parse_args()
-    if admin_pw:
+    if setup_needed:
         print("\n" + "=" * 64)
-        print("  FIRST RUN — an administrator account has been created.")
-        print("  Sign in, then create accounts for your team under 'Users'.")
-        print(f"    Username: admin")
-        print(f"    One-time password: {admin_pw}")
-        print("  You'll be asked to set a new password at first sign-in.")
+        print("  FIRST RUN — no accounts exist yet.")
+        print(f"  Open  http://{args.host}:{args.port}/  in your browser and")
+        print("  create your administrator account to get started.")
+        print("  After that, add your team under 'Users' — each teammate sets")
+        print("  their own password at first sign-in.")
         print("=" * 64 + "\n")
     print(f"Argus running at http://{args.host}:{args.port}  (DB: {DB_PATH})")
     app.run(host=args.host, port=args.port, debug=args.debug)

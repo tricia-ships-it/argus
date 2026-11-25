@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>First-run setup · Argus</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='argus-icon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand"><img src="{{ url_for('static', filename='argus-icon.svg') }}" alt="" width="40" height="40"> Argus</div>
+      <div class="login-sub">Welcome. Create your administrator account to get started — you'll use this to sign in and to add your team.</div>
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
+      {% endwith %}
+      <form method="post">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <div class="login-field">
+          <label for="display_name">Your name</label>
+          <input id="display_name" name="display_name" value="{{ form.display_name or '' }}" autofocus required>
+        </div>
+        <div class="login-field">
+          <label for="username">Username</label>
+          <input id="username" name="username" value="{{ form.username or '' }}" autocomplete="username" required>
+        </div>
+        <div class="login-field">
+          <label for="email">Email <span class="muted">(optional)</span></label>
+          <input id="email" name="email" type="email" value="{{ form.email or '' }}" autocomplete="email">
+        </div>
+        <div class="login-field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="new-password" required>
+        </div>
+        <div class="login-field">
+          <label for="confirm">Confirm password</label>
+          <input id="confirm" name="confirm" type="password" autocomplete="new-password" required>
+        </div>
+        <button class="btn primary" type="submit" style="width:100%;justify-content:center">Create administrator account</button>
+      </form>
+      <p class="note" style="margin-top:18px">At least 8 characters. You can add teammates afterwards under <b>Users</b> — each one sets their own password the first time they sign in.</p>
+    </div>
+  </div>
+</body>
+</html>
