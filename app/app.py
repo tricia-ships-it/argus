@@ -693,6 +693,7 @@ def index():
     status = request.args.get("status", "").strip()
     risk = request.args.get("risk", "").strip()
     breach = request.args.get("breach", "").strip()
+    mine = request.args.get("mine", "").strip()
     sql = "SELECT * FROM findings WHERE 1=1"
     params = []
     if q:
@@ -713,6 +714,9 @@ def index():
         rows = [r for r in rows if r["actual_risk_classification"] == risk]
     if breach:
         rows = [r for r in rows if r["risk_tolerance_objective"] == "Breached"]
+    if mine:
+        mine_names = _owner_names_for_user(db, me)
+        rows = [r for r in rows if (r.get("asset_owner") or "").strip().lower() in mine_names]
 
     # stats
     all_rows = [enrich(r) for r in db.execute("SELECT * FROM findings")]
@@ -731,7 +735,7 @@ def index():
         "index.html", rows=rows, stats=stats, owners=owner_list(),
         statuses=engine.REMEDIATION_STATUSES, severities=engine.SEVERITIES,
         exploits=engine.EXPLOIT_OPTIONS, q=q, status=status, risk=risk, breach=breach,
-        today_iso=date.today().isoformat(),
+        mine=mine, today_iso=date.today().isoformat(),
     )
 
 

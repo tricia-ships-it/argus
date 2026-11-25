@@ -28,23 +28,23 @@
       <span class="mark">Argus</span>
     </div>
     {% set ep = request.endpoint %}
-    {% set more_eps = ['assets','scan_diff','remediation','threatintel_view','phishing_view','phishing_new','phishing_campaign','activity_feed','import_scan','schedules','schedule_add','owners','users','settings_page','settings','finding_new','shared_list','shared_view'] %}
+    {% set more_eps = ['assigned_to_me','assets','scan_diff','remediation','activity_feed','import_scan','schedules','schedule_add','owners','users','settings_page','settings','finding_new','shared_list','shared_view'] %}
     <nav class="topnav">
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}">Dashboard</a>
       <a href="{{ url_for('index') }}" class="{{ 'active' if ep in ['index','finding_detail'] }}">Findings</a>
-      <a href="{{ url_for('assigned_to_me') }}" class="{{ 'active' if ep == 'assigned_to_me' }}">Assigned to me</a>
       <a href="{{ url_for('inventory') }}" class="{{ 'active' if ep in ['inventory','inventory_import','inventory_edit'] }}">Asset register</a>
       <a href="{{ url_for('compliance_view') }}" class="{{ 'active' if ep == 'compliance_view' }}">Compliance</a>
+      <a href="{{ url_for('threatintel_view') }}" class="{{ 'active' if ep == 'threatintel_view' }}">Threats</a>
+      <a href="{{ url_for('phishing_view') }}" class="{{ 'active' if ep in ['phishing_view','phishing_new','phishing_campaign'] }}">Phishing</a>
       <div class="nav-more" id="moreWrap">
         <button type="button" class="nav-more-btn {{ 'active' if ep in more_eps or (ep and (ep.startswith('settings') or ep.startswith('schedule'))) }}" id="moreBtn" aria-haspopup="true" aria-expanded="false">
           More <svg class="um-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div class="nav-menu" id="moreMenu" hidden role="menu">
+          <a class="nav-menu-item {{ 'active' if ep == 'assigned_to_me' }}" href="{{ url_for('assigned_to_me') }}">Assigned to me</a>
           <a class="nav-menu-item {{ 'active' if ep == 'assets' }}" href="{{ url_for('assets') }}">Hosts at risk</a>
           <a class="nav-menu-item {{ 'active' if ep == 'scan_diff' }}" href="{{ url_for('scan_diff') }}">Compare scans</a>
           <a class="nav-menu-item {{ 'active' if ep == 'remediation' }}" href="{{ url_for('remediation') }}">Remediation plan</a>
-          <a class="nav-menu-item {{ 'active' if ep == 'threatintel_view' }}" href="{{ url_for('threatintel_view') }}">Threats</a>
-          <a class="nav-menu-item {{ 'active' if ep in ['phishing_view','phishing_new','phishing_campaign'] }}" href="{{ url_for('phishing_view') }}">Phishing</a>
           <a class="nav-menu-item {{ 'active' if ep in ['shared_list','shared_view'] }}" href="{{ url_for('shared_list') }}">Shared dashboards</a>
           <a class="nav-menu-item {{ 'active' if ep == 'activity_feed' }}" href="{{ url_for('activity_feed') }}">Activity log</a>
           {% if can_import_or_scan %}

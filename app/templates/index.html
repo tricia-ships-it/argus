@@ -25,8 +25,11 @@
     <option value="">Any status</option>
     {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if status==s }}>{{ s }}</option>{% endfor %}
   </select>
+  <label class="mine-toggle {{ 'on' if mine }}" title="Show only findings on assets you own">
+    <input type="checkbox" name="mine" value="1" {{ 'checked' if mine }} onchange="this.form.submit()"> Assigned to me
+  </label>
   <button class="btn" type="submit">Filter</button>
-  {% if q or risk or status or breach %}<a class="btn ghost" href="{{ url_for('index') }}">Clear</a>{% endif %}
+  {% if q or risk or status or breach or mine %}<a class="btn ghost" href="{{ url_for('index') }}">Clear</a>{% endif %}
   <div class="spacer"></div>
   <a class="btn" href="{{ url_for('export_excel') }}">Export Excel</a>
   <a class="btn" href="{{ url_for('export_pdf') }}">Export PDF</a>
