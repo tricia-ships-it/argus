@@ -28,27 +28,39 @@
       <span class="mark">Argus</span>
     </div>
     {% set ep = request.endpoint %}
+    {% set more_eps = ['assets','scan_diff','remediation','threatintel_view','phishing_view','phishing_new','phishing_campaign','activity_feed','import_scan','schedules','schedule_add','owners','users','settings_page','settings','finding_new','shared_list','shared_view'] %}
     <nav class="topnav">
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}">Dashboard</a>
-      <a href="{{ url_for('shared_list') }}" class="{{ 'active' if ep in ['shared_list','shared_view'] }}">Shared</a>
       <a href="{{ url_for('index') }}" class="{{ 'active' if ep in ['index','finding_detail'] }}">Findings</a>
       <a href="{{ url_for('assigned_to_me') }}" class="{{ 'active' if ep == 'assigned_to_me' }}">Assigned to me</a>
       <a href="{{ url_for('inventory') }}" class="{{ 'active' if ep in ['inventory','inventory_import','inventory_edit'] }}">Asset register</a>
-      <a href="{{ url_for('assets') }}" class="{{ 'active' if ep == 'assets' }}">Hosts at risk</a>
-      <a href="{{ url_for('scan_diff') }}" class="{{ 'active' if ep == 'scan_diff' }}">Compare</a>
       <a href="{{ url_for('compliance_view') }}" class="{{ 'active' if ep == 'compliance_view' }}">Compliance</a>
-      <a href="{{ url_for('remediation') }}" class="{{ 'active' if ep == 'remediation' }}">Remediation</a>
-      <a href="{{ url_for('threatintel_view') }}" class="{{ 'active' if ep == 'threatintel_view' }}">Threats</a>
-      <a href="{{ url_for('phishing_view') }}" class="{{ 'active' if ep in ['phishing_view','phishing_new','phishing_campaign'] }}">Phishing</a>
-      <a href="{{ url_for('activity_feed') }}" class="{{ 'active' if ep == 'activity_feed' }}">Activity</a>
-      {% if can_import_or_scan %}
-      <a href="{{ url_for('import_scan') }}" class="{{ 'active' if ep == 'import_scan' }}">Import</a>
-      <a href="{{ url_for('schedules') }}" class="{{ 'active' if ep and ep.startswith('schedule') }}">Schedules</a>
-      <a href="{{ url_for('owners') }}" class="{{ 'active' if ep == 'owners' }}">Owners</a>
-      {% endif %}
-      {% if is_admin %}<a href="{{ url_for('users') }}" class="{{ 'active' if ep == 'users' }}">Admin</a>{% endif %}
-      {% if is_admin %}<a href="{{ url_for('settings_page') }}" class="{{ 'active' if ep and ep.startswith('settings') }}">Settings</a>{% endif %}
-      {% if can_import_or_scan %}<a href="{{ url_for('finding_new') }}">+ Add</a>{% endif %}
+      <div class="nav-more" id="moreWrap">
+        <button type="button" class="nav-more-btn {{ 'active' if ep in more_eps or (ep and (ep.startswith('settings') or ep.startswith('schedule'))) }}" id="moreBtn" aria-haspopup="true" aria-expanded="false">
+          More <svg class="um-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="nav-menu" id="moreMenu" hidden role="menu">
+          <a class="nav-menu-item {{ 'active' if ep == 'assets' }}" href="{{ url_for('assets') }}">Hosts at risk</a>
+          <a class="nav-menu-item {{ 'active' if ep == 'scan_diff' }}" href="{{ url_for('scan_diff') }}">Compare scans</a>
+          <a class="nav-menu-item {{ 'active' if ep == 'remediation' }}" href="{{ url_for('remediation') }}">Remediation plan</a>
+          <a class="nav-menu-item {{ 'active' if ep == 'threatintel_view' }}" href="{{ url_for('threatintel_view') }}">Threats</a>
+          <a class="nav-menu-item {{ 'active' if ep in ['phishing_view','phishing_new','phishing_campaign'] }}" href="{{ url_for('phishing_view') }}">Phishing</a>
+          <a class="nav-menu-item {{ 'active' if ep in ['shared_list','shared_view'] }}" href="{{ url_for('shared_list') }}">Shared dashboards</a>
+          <a class="nav-menu-item {{ 'active' if ep == 'activity_feed' }}" href="{{ url_for('activity_feed') }}">Activity log</a>
+          {% if can_import_or_scan %}
+          <div class="nav-menu-sep"></div>
+          <a class="nav-menu-item {{ 'active' if ep == 'finding_new' }}" href="{{ url_for('finding_new') }}">Add a finding</a>
+          <a class="nav-menu-item {{ 'active' if ep == 'import_scan' }}" href="{{ url_for('import_scan') }}">Import results</a>
+          <a class="nav-menu-item {{ 'active' if ep and ep.startswith('schedule') }}" href="{{ url_for('schedules') }}">Scheduled scans</a>
+          <a class="nav-menu-item {{ 'active' if ep == 'owners' }}" href="{{ url_for('owners') }}">Asset owners</a>
+          {% endif %}
+          {% if is_admin %}
+          <div class="nav-menu-sep"></div>
+          <a class="nav-menu-item {{ 'active' if ep == 'users' }}" href="{{ url_for('users') }}">Admin · users</a>
+          <a class="nav-menu-item {{ 'active' if ep and ep.startswith('settings') }}" href="{{ url_for('settings_page') }}">Settings</a>
+          {% endif %}
+        </div>
+      </div>
       {% if can_import_or_scan %}<a href="{{ url_for('scan_page') }}" class="primary">Run scan</a>{% endif %}
     </nav>
     <div class="usermenu">
@@ -130,7 +142,7 @@
     // Header dropdowns (account + notifications): open on click, close on
     // outside click or Escape; opening one closes the other.
     (function () {
-      var drops = [['acctWrap', 'acctBtn', 'acctMenu'], ['bellWrap', 'bellBtn', 'bellMenu']]
+      var drops = [['acctWrap', 'acctBtn', 'acctMenu'], ['bellWrap', 'bellBtn', 'bellMenu'], ['moreWrap', 'moreBtn', 'moreMenu']]
         .map(function (ids) {
           return { wrap: document.getElementById(ids[0]), btn: document.getElementById(ids[1]), menu: document.getElementById(ids[2]) };
         })

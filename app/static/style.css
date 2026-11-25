@@ -1105,3 +1105,28 @@ tr.rowlink:hover td { background: var(--panel-3); }
   box-shadow: 0 14px 38px -12px rgba(0,0,0,.55); text-align: left; }
 .member-list { list-style: none; margin: 0 0 4px; padding: 0; }
 .member-list li { display: flex; align-items: center; justify-content: space-between; padding: 3px 0; font-size: 12.5px; }
+
+/* "More" nav dropdown */
+.nav-more { position: relative; display: inline-flex; }
+.nav-more-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--ink-dim); background: none; border: 0; cursor: pointer;
+  font: inherit; padding: 7px 11px; border-radius: 8px;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.nav-more-btn:hover { background: var(--panel-2); color: var(--ink); }
+.nav-more-btn.active { color: var(--ink); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.nav-more-btn .um-caret { width: 13px; height: 13px; }
+.nav-more-btn[aria-expanded="true"] .um-caret { transform: rotate(180deg); }
+.nav-menu {
+  position: absolute; top: calc(100% + 8px); left: 0; min-width: 200px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 14px 38px -12px rgba(0,0,0,.55); padding: 6px; z-index: 40;
+}
+.nav-menu[hidden] { display: none; }
+.nav-menu-item { display: block; padding: 8px 11px; border-radius: 7px; font-size: 13px;
+  color: var(--ink-dim); text-decoration: none; white-space: nowrap;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease); }
+.nav-menu-item:hover { background: var(--panel-2); color: var(--ink); text-decoration: none; }
+.nav-menu-item.active { color: var(--ink); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.nav-menu-sep { height: 1px; background: var(--line); margin: 6px 4px; }
