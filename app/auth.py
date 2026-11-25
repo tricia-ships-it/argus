@@ -182,20 +182,33 @@ def logout_user():
 # ---------------------------------------------------------------------------
 # Permissions
 # ---------------------------------------------------------------------------
-def can_edit_finding(user, finding_row=None):
+def can_edit_finding(user, finding_row=None, db=None):
     """
-    admin/editor can always edit. A viewer can change a finding only when they
-    are its named Asset Owner (match on display_name or username, case-insens).
+    admin/editor can always edit. Any other user can change a finding when they
+    own it: either the owner label matches their name/username, or (when db is
+    given) the owner is a user-owner linked to them or a team they belong to.
     """
     if not user:
         return False
     if user["role"] in ("admin", "editor"):
         return True
-    if user["role"] == "viewer" and finding_row is not None:
-        owner = (finding_row["asset_owner"] or "").strip().lower()
-        if owner and owner in ((user["display_name"] or "").strip().lower(),
-                               (user["username"] or "").strip().lower()):
-            return True
+    if finding_row is None:
+        return False
+    owner = (finding_row["asset_owner"] or "").strip()
+    if not owner:
+        return False
+    if owner.lower() in ((user["display_name"] or "").strip().lower(),
+                         (user["username"] or "").strip().lower()):
+        return True
+    if db is not None:
+        row = db.execute("SELECT id, kind, user_id FROM asset_owners WHERE name=? COLLATE NOCASE",
+                         (owner,)).fetchone()
+        if row:
+            if (row["kind"] or "team") == "user" and row["user_id"] == user["id"]:
+                return True
+            if db.execute("SELECT 1 FROM team_members WHERE owner_id=? AND user_id=?",
+                          (row["id"], user["id"])).fetchone():
+                return True
     return False
 
 

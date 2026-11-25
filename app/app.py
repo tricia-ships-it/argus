@@ -27,6 +27,7 @@ from flask import (
 import engine
 import cvss as cvss_mod
 import cred_audit
+import notifications
 from parsers import detect_and_parse
 import scanner as scanner_mod
 import auth
@@ -188,6 +189,23 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE
         );
+        -- Members of a team owner (asset_owners.kind='team').
+        CREATE TABLE IF NOT EXISTS team_members (
+            owner_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            PRIMARY KEY (owner_id, user_id),
+            FOREIGN KEY(owner_id) REFERENCES asset_owners(id),
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+        -- In-system notifications (assignment alerts, etc.).
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            kind TEXT, title TEXT, body TEXT, link TEXT,
+            read INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        );
         CREATE TABLE IF NOT EXISTS evidence (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             finding_id INTEGER,
@@ -303,6 +321,12 @@ def init_db():
         "cvss_score": "cvss_score REAL",
         "cvss_vector": "cvss_vector TEXT",
     })
+    # Owners become either a user-backed owner or a team with members.
+    _ensure_cols("asset_owners", {
+        "kind": "kind TEXT DEFAULT 'team'",
+        "user_id": "user_id INTEGER",
+        "email": "email TEXT",
+    })
     # seed a few default owners if empty
     cur = db.execute("SELECT COUNT(*) FROM asset_owners")
     if cur.fetchone()[0] == 0:
@@ -323,11 +347,21 @@ def inject_user():
         u = auth.current_user(get_db())
     except Exception:
         u = None
+    notif_items, notif_unread = [], 0
+    if u:
+        try:
+            db = get_db()
+            notif_items = notifications.recent(db, u["id"], limit=12)
+            notif_unread = notifications.unread_count(db, u["id"])
+        except Exception:
+            notif_items, notif_unread = [], 0
     return {
         "current_user": u,
         "is_admin": auth.is_admin(u),
         "can_import_or_scan": auth.can_import_or_scan(u),
         "role_labels": auth.ROLE_LABELS,
+        "notif_items": notif_items,
+        "notif_unread": notif_unread,
     }
 
 
@@ -390,6 +424,30 @@ def enrich(row):
 def owner_list():
     db = get_db()
     return [row["name"] for row in db.execute("SELECT name FROM asset_owners ORDER BY name")]
+
+
+def owner_directory():
+    """Owners with their kind and (for user-owners) the linked user, and member
+    counts for teams — for the owners management page and pickers."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT o.*, u.display_name AS u_name, u.username AS u_username, u.email AS u_email, "
+        "(SELECT COUNT(*) FROM team_members tm WHERE tm.owner_id=o.id) AS members "
+        "FROM asset_owners o LEFT JOIN users u ON u.id=o.user_id ORDER BY o.name"
+    ).fetchall()
+    return rows
+
+
+def _flash_assignment(r, owner_name):
+    """Surface the outcome of an assignment notification to the person who did it."""
+    if not r or not r.get("in_app"):
+        return
+    bits = [f"Notified {owner_name}"]
+    if r.get("emailed"):
+        bits.append(f"{r['emailed']} email{'' if r['emailed'] == 1 else 's'} sent")
+    if r.get("errors"):
+        bits.append(f"{len(r['errors'])} email(s) couldn't send — check mail settings")
+    flash(" · ".join(bits) + ".")
 
 
 # ---------------------------------------------------------------------------
@@ -649,7 +707,7 @@ def index():
     rows = []
     for raw in raw_rows:
         er = enrich(raw)
-        er["can_edit"] = auth.can_edit_finding(me, raw)
+        er["can_edit"] = auth.can_edit_finding(me, raw, db)
         rows.append(er)
     if risk:
         rows = [r for r in rows if r["actual_risk_classification"] == risk]
@@ -891,6 +949,13 @@ def finding_new():
         fid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
         auth.log_activity(db, me["id"], fid, "created",
                           request.form.get("vulnerability", "")[:120])
+        owner = (rec.get("asset_owner") or "").strip()
+        if owner:
+            fresh = db.execute("SELECT * FROM findings WHERE id=?", (fid,)).fetchone()
+            r = notifications.notify_assignment(
+                db, owner, fresh, me["display_name"] or me["username"],
+                base_url=request.url_root, exclude_user_id=me["id"])
+            _flash_assignment(r, owner)
         flash("Finding added.")
         return redirect(url_for("index"))
     return render_template(
@@ -908,12 +973,13 @@ def finding_edit(fid):
     row = db.execute("SELECT * FROM findings WHERE id=?", (fid,)).fetchone()
     if not row:
         abort(404)
-    editable = auth.can_edit_finding(me, row)
+    editable = auth.can_edit_finding(me, row, db)
     if request.method == "POST":
         if not editable:
             flash("You can view and comment on this finding, but only the security team or the asset owner can edit it.")
             return redirect(url_for("finding_edit", fid=fid))
         prev_status = row["remediation_status"]
+        prev_owner = (row["asset_owner"] or "").strip()
         form_data = _form_to_dict(request.form)
         # A non-editor asset owner may update remediation progress only — not the
         # finding's classification, ownership, or the vulnerability details.
@@ -929,6 +995,13 @@ def finding_edit(fid):
                               f'{prev_status} → {fresh["remediation_status"]} on {row["ip_hostname"]}')
         else:
             auth.log_activity(db, me["id"], fid, "edited", row["ip_hostname"])
+        # Notify the owner if ownership was just (re)assigned.
+        new_owner = (fresh["asset_owner"] or "").strip()
+        if new_owner and new_owner.lower() != prev_owner.lower():
+            r = notifications.notify_assignment(
+                db, new_owner, fresh, me["display_name"] or me["username"],
+                base_url=request.url_root, exclude_user_id=me["id"])
+            _flash_assignment(r, new_owner)
         flash("Finding updated.")
         return redirect(url_for("index"))
     comments = db.execute(
@@ -940,6 +1013,64 @@ def finding_edit(fid):
         statuses=engine.REMEDIATION_STATUSES, severities=engine.SEVERITIES,
         exploits=engine.EXPLOIT_OPTIONS, is_new=False, comments=comments, can_edit=editable,
     )
+
+
+def _owner_names_for_user(db, user):
+    """Lowercased owner labels that belong to this user: their own name/username,
+    any user-owner linked to them, and teams they are a member of."""
+    names = set()
+    for k in ("display_name", "username"):
+        v = (user[k] or "").strip().lower()
+        if v:
+            names.add(v)
+    rows = db.execute(
+        "SELECT o.name FROM asset_owners o WHERE (o.kind='user' AND o.user_id=?) "
+        "OR o.id IN (SELECT owner_id FROM team_members WHERE user_id=?)",
+        (user["id"], user["id"])).fetchall()
+    for r in rows:
+        if r["name"]:
+            names.add(r["name"].strip().lower())
+    return names
+
+
+@app.route("/assigned")
+@auth.login_required
+def assigned_to_me():
+    db = get_db()
+    me = auth.current_user(db)
+    names = _owner_names_for_user(db, me)
+    rows = []
+    if names:
+        placeholders = ",".join("?" for _ in names)
+        rows = db.execute(
+            f"SELECT * FROM findings WHERE LOWER(TRIM(asset_owner)) IN ({placeholders}) "
+            "ORDER BY detection_date DESC, id DESC", list(names)).fetchall()
+    findings = [enrich(r) for r in rows]
+    open_n = sum(1 for f in findings if f.get("remediation_status") not in engine.CLOSING_STATUSES)
+    return render_template("assigned.html", findings=findings, open_n=open_n)
+
+
+@app.route("/notifications/open/<int:nid>")
+@auth.login_required
+def notification_open(nid):
+    db = get_db()
+    me = auth.current_user(db)
+    row = db.execute("SELECT * FROM notifications WHERE id=? AND user_id=?", (nid, me["id"])).fetchone()
+    notifications.mark_read(db, me["id"], nid)
+    if row and row["link"]:
+        from urllib.parse import urlparse
+        path = urlparse(row["link"]).path or url_for("assigned_to_me")
+        return redirect(path)
+    return redirect(url_for("assigned_to_me"))
+
+
+@app.route("/notifications/read-all", methods=["POST"])
+@auth.login_required
+def notifications_read_all():
+    db = get_db()
+    me = auth.current_user(db)
+    notifications.mark_all_read(db, me["id"])
+    return redirect(_safe_next(request.form.get("next")) or url_for("assigned_to_me"))
 
 
 @app.route("/finding/<int:fid>/delete", methods=["POST"])
@@ -1014,7 +1145,7 @@ def finding_status(fid):
     row = db.execute("SELECT * FROM findings WHERE id=?", (fid,)).fetchone()
     if not row:
         abort(404)
-    if not auth.can_edit_finding(me, row):
+    if not auth.can_edit_finding(me, row, db):
         return jsonify({"ok": False, "error": "no_permission"}), 403
     new_status = request.json.get("status")
     updates = {"remediation_status": new_status,
@@ -1089,7 +1220,7 @@ def finding_detail(fid):
     if not row:
         abort(404)
     f = enrich(row)
-    f["can_edit"] = auth.can_edit_finding(me, row)
+    f["can_edit"] = auth.can_edit_finding(me, row, db)
     comments = db.execute(
         "SELECT c.*, u.display_name, u.username, u.role FROM comments c "
         "JOIN users u ON u.id=c.user_id WHERE c.finding_id=? ORDER BY c.created_at", (fid,)
@@ -1120,7 +1251,7 @@ def evidence_upload(fid):
     row = db.execute("SELECT * FROM findings WHERE id=?", (fid,)).fetchone()
     if not row:
         abort(404)
-    if not auth.can_edit_finding(me, row):
+    if not auth.can_edit_finding(me, row, db):
         flash("Only the security team or the asset owner can add evidence to this finding.")
         return redirect(url_for("finding_detail", fid=fid))
     file = request.files.get("evidence")
@@ -1162,7 +1293,7 @@ def evidence_delete(eid):
     if not row:
         abort(404)
     finding = db.execute("SELECT * FROM findings WHERE id=?", (row["finding_id"],)).fetchone()
-    if not (finding and auth.can_edit_finding(me, finding)):
+    if not (finding and auth.can_edit_finding(me, finding, db)):
         abort(403)
     db.execute("DELETE FROM evidence WHERE id=?", (eid,))
     db.commit()
@@ -3019,13 +3150,73 @@ def remediation():
 def owners():
     db = get_db()
     if request.method == "POST":
+        # Create a team owner (a plain name). User-owners are created from the
+        # "link a user" form below, which carries kind=user.
         name = request.form.get("name", "").strip()
         if name:
-            db.execute("INSERT OR IGNORE INTO asset_owners(name) VALUES (?)", (name,))
+            db.execute("INSERT OR IGNORE INTO asset_owners(name, kind) VALUES (?, 'team')", (name,))
             db.commit()
         return redirect(url_for("owners"))
-    rows = db.execute("SELECT * FROM asset_owners ORDER BY name").fetchall()
-    return render_template("owners.html", owners=rows)
+    owners_rows = owner_directory()
+    # users not yet linked as a user-owner, offered in the "add a person" picker
+    linked = {r["user_id"] for r in owners_rows if r["user_id"]}
+    users = db.execute("SELECT id, display_name, username, email FROM users WHERE active=1 "
+                       "ORDER BY display_name, username").fetchall()
+    free_users = [u for u in users if u["id"] not in linked]
+    # members for each team, for the expandable rows
+    members = {}
+    for o in owners_rows:
+        if (o["kind"] or "team") == "team":
+            members[o["id"]] = db.execute(
+                "SELECT u.id, u.display_name, u.username FROM team_members tm "
+                "JOIN users u ON u.id=tm.user_id WHERE tm.owner_id=? ORDER BY u.display_name",
+                (o["id"],)).fetchall()
+    return render_template("owners.html", owners=owners_rows, all_users=users,
+                           free_users=free_users, members=members)
+
+
+@app.route("/owners/add_person", methods=["POST"])
+@auth.role_required("admin", "editor")
+def owners_add_person():
+    db = get_db()
+    uid = request.form.get("user_id", "")
+    u = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone() if uid else None
+    if not u:
+        flash("Pick a user to add as an owner.")
+        return redirect(url_for("owners"))
+    name = (u["display_name"] or u["username"]).strip()
+    # avoid a name clash with an existing owner
+    existing = db.execute("SELECT id FROM asset_owners WHERE name=? COLLATE NOCASE", (name,)).fetchone()
+    if existing:
+        db.execute("UPDATE asset_owners SET kind='user', user_id=?, email=? WHERE id=?",
+                   (u["id"], u["email"], existing["id"]))
+    else:
+        db.execute("INSERT INTO asset_owners(name, kind, user_id, email) VALUES (?, 'user', ?, ?)",
+                   (name, u["id"], u["email"]))
+    db.commit()
+    flash(f"{name} can now be assigned assets and will be notified.")
+    return redirect(url_for("owners"))
+
+
+@app.route("/owners/<int:oid>/members/add", methods=["POST"])
+@auth.role_required("admin", "editor")
+def owners_member_add(oid):
+    db = get_db()
+    uid = request.form.get("user_id", "")
+    owner = db.execute("SELECT * FROM asset_owners WHERE id=?", (oid,)).fetchone()
+    if owner and (owner["kind"] or "team") == "team" and uid:
+        db.execute("INSERT OR IGNORE INTO team_members(owner_id, user_id) VALUES (?, ?)", (oid, uid))
+        db.commit()
+    return redirect(url_for("owners"))
+
+
+@app.route("/owners/<int:oid>/members/<int:uid>/remove", methods=["POST"])
+@auth.role_required("admin", "editor")
+def owners_member_remove(oid, uid):
+    db = get_db()
+    db.execute("DELETE FROM team_members WHERE owner_id=? AND user_id=?", (oid, uid))
+    db.commit()
+    return redirect(url_for("owners"))
 
 
 @app.route("/owners/add_ajax", methods=["POST"])
@@ -3034,7 +3225,7 @@ def owners_add_ajax():
     db = get_db()
     name = request.json.get("name", "").strip()
     if name:
-        db.execute("INSERT OR IGNORE INTO asset_owners(name) VALUES (?)", (name,))
+        db.execute("INSERT OR IGNORE INTO asset_owners(name, kind) VALUES (?, 'team')", (name,))
         db.commit()
     return jsonify({"ok": True, "owners": owner_list()})
 
@@ -3044,6 +3235,7 @@ def owners_add_ajax():
 def owners_delete(oid):
     db = get_db()
     db.execute("DELETE FROM asset_owners WHERE id=?", (oid,))
+    db.execute("DELETE FROM team_members WHERE owner_id=?", (oid,))
     db.commit()
     return redirect(url_for("owners"))
 

@@ -1,28 +1,101 @@
 {% extends "base.html" %}
 {% block title %}Asset owners · Argus{% endblock %}
 {% block body %}
-<h1>Asset owners</h1>
-<p class="lede">Names here appear in the Asset Owner dropdown on every finding.</p>
-
-<div class="panel" style="max-width:560px">
-  <form method="post" class="toolbar" style="margin:0"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <input type="text" name="name" placeholder="Add an owner (person or team)…" required style="flex:1">
-    <button class="btn primary" type="submit">Add</button>
-  </form>
+<div class="page-head">
+  <div>
+    <h1>Asset owners</h1>
+    <p class="lede">Owners appear in the Asset Owner dropdown on every finding. A <b>person</b> is linked to a user account, so when work is assigned to them they get an in-app notification and an email, and can sign in to update their own findings. A <b>team</b> notifies all of its members.</p>
+  </div>
 </div>
 
-<div style="max-width:560px">
-  <ul class="owners-list">
-    {% for o in owners %}
-    <li>
-      <span>{{ o.name }}</span>
-      <form method="post" action="{{ url_for('owners_delete', oid=o.id) }}" onsubmit="return confirm('Remove {{ o.name }}?')"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<div class="owners-cols">
+  <div class="panel">
+    <h2>Add a person</h2>
+    <p class="subhead">Link a user account as an owner. They're notified on assignment and can update their own items.</p>
+    {% if free_users %}
+    <form method="post" action="{{ url_for('owners_add_person') }}" class="toolbar" style="margin:0">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <select name="user_id" required style="flex:1">
+        <option value="">Choose a user…</option>
+        {% for u in free_users %}<option value="{{ u.id }}">{{ u.display_name or u.username }}{% if u.email %} · {{ u.email }}{% endif %}</option>{% endfor %}
+      </select>
+      <button class="btn primary" type="submit">Add person</button>
+    </form>
+    {% else %}
+    <p class="note">Every active user is already an owner. Create more accounts under <a href="{{ url_for('users') }}">Admin</a>.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Add a team</h2>
+    <p class="subhead">A named group. Assigning to it notifies every member.</p>
+    <form method="post" class="toolbar" style="margin:0">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="text" name="name" placeholder="e.g. Network Team" required style="flex:1">
+      <button class="btn primary" type="submit">Add team</button>
+    </form>
+  </div>
+</div>
+
+<div class="table-scroll" style="margin-top:18px"><table class="grid">
+  <thead><tr><th>Owner</th><th>Type</th><th>Notifies</th><th></th></tr></thead>
+  <tbody>
+  {% for o in owners %}
+  <tr>
+    <td>
+      <b>{{ o.name }}</b>
+      {% if o.kind == 'user' and o.u_email %}<div class="muted" style="font-size:11px">{{ o.u_email }}</div>{% endif %}
+    </td>
+    <td class="nowrap">
+      {% if o.kind == 'user' %}<span class="pill-ok">Person</span>
+      {% else %}<span class="chip">Team · {{ o.members }} member{{ '' if o.members == 1 else 's' }}</span>{% endif %}
+    </td>
+    <td style="font-size:12px">
+      {% if o.kind == 'user' %}
+        {{ o.u_name or o.name }}{% if not o.u_email %} <span class="pill-warn" title="This user has no email, so only in-app notifications are sent">no email</span>{% endif %}
+      {% else %}
+        {% set ms = members.get(o.id) %}
+        {% if ms %}{% for m in ms %}{{ m.display_name or m.username }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}<span class="muted">No members yet</span>{% endif %}
+      {% endif %}
+    </td>
+    <td class="nowrap" style="text-align:right">
+      {% if o.kind != 'user' %}
+      <details class="inline-manage">
+        <summary class="btn sm">Members</summary>
+        <div class="member-pop">
+          {% set ms = members.get(o.id) %}
+          {% if ms %}
+          <ul class="member-list">
+            {% for m in ms %}
+            <li>{{ m.display_name or m.username }}
+              <form method="post" action="{{ url_for('owners_member_remove', oid=o.id, uid=m.id) }}" style="display:inline">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <button class="btn xs ghost" type="submit" title="Remove">✕</button>
+              </form>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          <form method="post" action="{{ url_for('owners_member_add', oid=o.id) }}" class="toolbar" style="margin:6px 0 0">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <select name="user_id" required style="flex:1">
+              <option value="">Add a member…</option>
+              {% for u in all_users %}<option value="{{ u.id }}">{{ u.display_name or u.username }}</option>{% endfor %}
+            </select>
+            <button class="btn sm primary" type="submit">Add</button>
+          </form>
+        </div>
+      </details>
+      {% endif %}
+      <form method="post" action="{{ url_for('owners_delete', oid=o.id) }}" style="display:inline" onsubmit="return confirm('Remove {{ o.name }}?')">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <button class="btn sm danger" type="submit">Remove</button>
       </form>
-    </li>
-    {% else %}
-    <li class="muted">No owners yet.</li>
-    {% endfor %}
-  </ul>
-</div>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="muted">No owners yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
 {% endblock %}

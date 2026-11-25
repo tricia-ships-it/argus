@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Assigned to me · Argus{% endblock %}
+{% block body %}
+<div class="page-head">
+  <div>
+    <h1>Assigned to me</h1>
+    <p class="lede">Findings on assets you own, directly or through a team. You can update the remediation status and comments on these.</p>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="n">{{ findings|length }}</div><div class="l">Assigned to you</div></div>
+  <div class="stat" style="--accent:var(--high)"><div class="n">{{ open_n }}</div><div class="l">Still open</div></div>
+</div>
+
+{% if not findings %}
+<div class="empty">
+  <h3>Nothing assigned to you yet</h3>
+  <p>When an admin or editor assigns you (or a team you're in) as the owner of a finding, it shows up here and you'll get a notification.</p>
+</div>
+{% else %}
+<div class="table-scroll"><table class="grid">
+  <thead><tr>
+    <th>Host</th><th>Vulnerability</th><th>CVSS</th><th>Actual risk</th><th>Status</th><th>Target fix</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for r in findings %}
+  <tr>
+    <td class="mono nowrap">{{ r.ip_hostname or '—' }}</td>
+    <td>{{ r.vulnerability }}</td>
+    <td class="nowrap mono">{% if r.cvss_score_disp %}<span class="risk {{ r.cvss_severity }}">{{ r.cvss_score_disp }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+    <td class="nowrap">{% if r.actual_risk_classification %}<span class="risk {{ r.actual_risk_classification }}">{{ r.actual_risk_classification }}</span>{% endif %}</td>
+    <td class="nowrap">{{ r.remediation_status or '—' }}</td>
+    <td class="nowrap mono">{{ r.target_fix_date or '—' }}</td>
+    <td class="nowrap"><a class="btn sm primary" href="{{ url_for('finding_edit', fid=r.id) }}">Update</a></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endif %}
+{% endblock %}

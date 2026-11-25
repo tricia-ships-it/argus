@@ -32,6 +32,7 @@
       <a href="{{ url_for('dashboard') }}" class="{{ 'active' if ep == 'dashboard' }}">Dashboard</a>
       <a href="{{ url_for('shared_list') }}" class="{{ 'active' if ep in ['shared_list','shared_view'] }}">Shared</a>
       <a href="{{ url_for('index') }}" class="{{ 'active' if ep in ['index','finding_detail'] }}">Findings</a>
+      <a href="{{ url_for('assigned_to_me') }}" class="{{ 'active' if ep == 'assigned_to_me' }}">Assigned to me</a>
       <a href="{{ url_for('inventory') }}" class="{{ 'active' if ep in ['inventory','inventory_import','inventory_edit'] }}">Asset register</a>
       <a href="{{ url_for('assets') }}" class="{{ 'active' if ep == 'assets' }}">Hosts at risk</a>
       <a href="{{ url_for('scan_diff') }}" class="{{ 'active' if ep == 'scan_diff' }}">Compare</a>
@@ -58,6 +59,33 @@
       <button type="button" class="um-btn icon" id="themeToggle" title="Toggle light / dark" aria-label="Toggle light or dark theme">
         <svg class="um-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3 a9 9 0 0 0 0 18 Z" fill="currentColor" stroke="none"/></svg>
       </button>
+      <div class="um-bell" id="bellWrap">
+        <button type="button" class="um-btn icon" id="bellBtn" aria-haspopup="true" aria-expanded="false" title="Notifications" aria-label="Notifications">
+          <svg class="um-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          {% if notif_unread %}<span class="um-badge">{{ notif_unread if notif_unread < 10 else '9+' }}</span>{% endif %}
+        </button>
+        <div class="um-menu notif-menu" id="bellMenu" hidden role="menu">
+          <div class="um-menu-head notif-head">
+            <span class="um-menu-name">Notifications</span>
+            {% if notif_unread %}
+            <form method="post" action="{{ url_for('notifications_read_all') }}" style="margin:0">
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <button class="btn xs ghost" type="submit">Mark all read</button>
+            </form>
+            {% endif %}
+          </div>
+          {% for n in notif_items %}
+          <a class="notif-item {{ 'unread' if not n.read }}" href="{{ url_for('notification_open', nid=n.id) }}">
+            <span class="notif-title">{{ n.title }}</span>
+            <span class="notif-body">{{ n.body }}</span>
+            <span class="notif-time">{{ (n.created_at or '')[:16].replace('T',' ') }}</span>
+          </a>
+          {% else %}
+          <div class="notif-empty">No notifications yet.</div>
+          {% endfor %}
+          <a class="notif-foot" href="{{ url_for('assigned_to_me') }}">View everything assigned to me →</a>
+        </div>
+      </div>
       <span class="um-div" aria-hidden="true"></span>
       <div class="um-acct" id="acctWrap">
         <button type="button" class="um-account" id="acctBtn" aria-haspopup="true" aria-expanded="false">
@@ -99,20 +127,30 @@
       });
       function save(v) { try { localStorage.setItem('vapt-theme', v); } catch (e) {} }
     })();
-    // Account dropdown: open on click, close on outside click or Escape.
+    // Header dropdowns (account + notifications): open on click, close on
+    // outside click or Escape; opening one closes the other.
     (function () {
-      var wrap = document.getElementById('acctWrap');
-      var btn = document.getElementById('acctBtn');
-      var menu = document.getElementById('acctMenu');
-      if (!wrap || !btn || !menu) return;
-      function close() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
-      function open() { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
-      btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        menu.hidden ? open() : close();
+      var drops = [['acctWrap', 'acctBtn', 'acctMenu'], ['bellWrap', 'bellBtn', 'bellMenu']]
+        .map(function (ids) {
+          return { wrap: document.getElementById(ids[0]), btn: document.getElementById(ids[1]), menu: document.getElementById(ids[2]) };
+        })
+        .filter(function (d) { return d.wrap && d.btn && d.menu; });
+      function closeAll(except) {
+        drops.forEach(function (d) { if (d !== except) { d.menu.hidden = true; d.btn.setAttribute('aria-expanded', 'false'); } });
+      }
+      drops.forEach(function (d) {
+        d.btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var willOpen = d.menu.hidden;
+          closeAll(d);
+          d.menu.hidden = !willOpen;
+          d.btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        });
       });
-      document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) close(); });
-      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+      document.addEventListener('click', function (e) {
+        drops.forEach(function (d) { if (!d.wrap.contains(e.target)) { d.menu.hidden = true; d.btn.setAttribute('aria-expanded', 'false'); } });
+      });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(null); });
     })();
   </script>
   {% block scripts %}{% endblock %}
