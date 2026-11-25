@@ -9,11 +9,11 @@
   </div>
 </div>
 
-<div class="stats">
-  <div class="stat"><div class="n count" data-count="{{ stats.total }}">{{ stats.total }}</div><div class="l">Accounts</div></div>
-  <div class="stat" style="--accent:var(--accent)"><div class="n count" data-count="{{ stats.admins }}">{{ stats.admins }}</div><div class="l">Admins</div></div>
-  <div class="stat" style="--accent:var(--low)"><div class="n count" data-count="{{ stats.active }}">{{ stats.active }}</div><div class="l">Active</div></div>
-  <div class="stat"><div class="n count" data-count="{{ stats.inactive }}">{{ stats.inactive }}</div><div class="l">Inactive</div></div>
+<div class="stats" title="Click an access level to see just those accounts">
+  <div class="stat clickable active" data-urole="all"><div class="n count" data-count="{{ stats.total }}">{{ stats.total }}</div><div class="l">All accounts</div></div>
+  <div class="stat clickable" data-urole="admin" style="--accent:var(--accent)"><div class="n count" data-count="{{ users|selectattr('role','equalto','admin')|list|length }}">{{ users|selectattr('role','equalto','admin')|list|length }}</div><div class="l">Admins</div></div>
+  <div class="stat clickable" data-urole="editor" style="--accent:var(--med)"><div class="n count" data-count="{{ users|selectattr('role','equalto','editor')|list|length }}">{{ users|selectattr('role','equalto','editor')|list|length }}</div><div class="l">Editors</div></div>
+  <div class="stat clickable" data-urole="viewer" style="--accent:var(--low)"><div class="n count" data-count="{{ users|selectattr('role','equalto','viewer')|list|length }}">{{ users|selectattr('role','equalto','viewer')|list|length }}</div><div class="l">Viewers</div></div>
 </div>
 
 <div class="detail-grid">
@@ -25,7 +25,7 @@
         <thead><tr><th>User</th><th>Email</th><th>Access level</th><th>Status</th><th>Last active</th><th></th></tr></thead>
         <tbody>
           {% for u in users %}
-          <tr class="{{ 'inactive-row' if not u.active }}">
+          <tr class="{{ 'inactive-row' if not u.active }}" data-role="{{ u.role }}">
             <td>
               <div>{{ u.display_name or u.username }}{% if u.id == me_id %} <span class="pill">you</span>{% endif %}</div>
               <div class="muted mono" style="font-size:11px">{{ u.username }}</div>
@@ -117,5 +117,16 @@ document.addEventListener('click', function (e) {
     if (!d.contains(e.target)) d.removeAttribute('open');
   });
 });
+// filter the team table by access level when a card is clicked
+(function () {
+  var rows = Array.prototype.slice.call(document.querySelectorAll('table.grid tbody tr[data-role]'));
+  document.querySelectorAll('.stat[data-urole]').forEach(function (card) {
+    card.addEventListener('click', function () {
+      document.querySelectorAll('.stat[data-urole]').forEach(function (s) { s.classList.toggle('active', s === card); });
+      var want = card.getAttribute('data-urole');
+      rows.forEach(function (r) { r.style.display = (want === 'all' || r.dataset.role === want) ? '' : 'none'; });
+    });
+  });
+})();
 </script>
 {% endblock %}

@@ -201,6 +201,9 @@
       function closeMobile() { root.classList.remove('side-open'); }
       if (scrim) scrim.addEventListener('click', closeMobile);
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMobile(); });
+      // keep the current page's nav item visible in the rail after navigating
+      var active = document.querySelector('.side-link.active');
+      if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' });
     })();
     // Header dropdowns (account + notifications): open on click, close on
     // outside click or Escape; opening one closes the other.

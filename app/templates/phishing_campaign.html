@@ -14,6 +14,7 @@
   </div>
   <div class="head-actions">
     {% if can_manage %}
+    <a class="btn ghost" href="{{ url_for('phishing_new') }}">+ New campaign</a>
     <a class="btn ghost" href="{{ url_for('phishing_export', cid=c.id) }}">Export links (CSV)</a>
     {% if c.status == 'Draft' %}
     <form method="post" action="{{ url_for('phishing_launch', cid=c.id) }}" style="display:inline">
@@ -102,13 +103,15 @@
     <form method="post" action="{{ url_for('phishing_add_group', cid=c.id) }}" class="toolbar" style="margin:16px 0 0">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <label class="lbl" style="margin:0">Add from a saved group</label>
-      <select name="group_id" required style="flex:1;max-width:280px">
+      <select name="group_id" id="addGroupSel" required style="flex:1;max-width:280px">
         <option value="">Choose a group…</option>
         {% for g in saved_groups %}<option value="{{ g.id }}">{{ g.name }} ({{ g.n }})</option>{% endfor %}
       </select>
       <button class="btn" type="submit">Add group</button>
       <a class="btn ghost sm" href="{{ url_for('phishing_groups') }}">Manage groups</a>
     </form>
+    <div class="sg-preview" id="sgPreview" hidden></div>
+    <script id="sgdata" type="application/json">{{ saved_group_members|tojson }}</script>
     {% else %}
     <p class="note" style="margin-top:16px">Tip: build reusable <a href="{{ url_for('phishing_groups') }}">recipient groups</a> once, then pull them into any campaign.</p>
     {% endif %}
@@ -182,7 +185,7 @@
             <div class="grp-pick">
               {% for g in groups %}
               <div class="grp-row">
-                <label class="grp-opt"><input type="checkbox" name="group" value="{{ g.name }}" checked> <span>{{ g.name or 'Ungrouped' }} <span class="muted">({{ g.count }})</span></span></label>
+                <label class="grp-opt"><input type="checkbox" name="group" value="{{ g.name }}" checked> <span>{{ g.name or 'No group (added directly)' }} <span class="muted">({{ g.count }})</span></span></label>
                 <details class="grp-members">
                   <summary>see who</summary>
                   <ul>
@@ -234,6 +237,24 @@
 {% endblock %}
 {% block scripts %}
 <script>
+// preview the people in a saved group when you pick it
+(function () {
+  var sel = document.getElementById('addGroupSel');
+  var box = document.getElementById('sgPreview');
+  if (!sel || !box) return;
+  var data = {};
+  try { data = JSON.parse(document.getElementById('sgdata').textContent); } catch (e) {}
+  function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  sel.addEventListener('change', function () {
+    var ms = data[sel.value];
+    if (!ms || !ms.length) { box.hidden = true; box.innerHTML = ''; return; }
+    var items = ms.map(function (m) {
+      return '<li>' + esc(m.name || m.contact) + ' <span class="muted mono">' + esc(m.contact) + '</span></li>';
+    }).join('');
+    box.innerHTML = '<b>' + ms.length + (ms.length === 1 ? ' person' : ' people') + '</b> will be added from this group:<ul>' + items + '</ul>';
+    box.hidden = false;
+  });
+})();
 function flash(b) { var o = b.textContent; b.textContent = 'Copied ✓'; setTimeout(function () { b.textContent = o; }, 1200); }
 document.querySelectorAll('.copylink').forEach(function (b) {
   b.addEventListener('click', function () {

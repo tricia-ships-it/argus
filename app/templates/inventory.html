@@ -15,10 +15,34 @@
       <button class="btn" type="submit">Sync from Zoho</button>
     </form>
     {% endif %}
+    {% if can_manage %}<button class="btn" type="button" id="addAssetBtn">+ Add asset</button>{% endif %}
     <a class="btn ghost" href="{{ url_for('inventory_template') }}">Download template</a>
     <a class="btn primary" href="{{ url_for('inventory_import') }}">Import assets</a>
   </div>
 </div>
+
+{% if can_manage %}
+<div class="panel" id="addAssetPanel" hidden style="margin-bottom:14px">
+  <h2>Add a single asset</h2>
+  <form method="post" action="{{ url_for('inventory_add') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="field"><label>IP address</label><input name="ip" placeholder="10.0.0.10"></div>
+      <div class="field"><label>Hostname</label><input name="hostname" placeholder="web-01"></div>
+      <div class="field full"><label>Description / role</label><input name="description" placeholder="e.g. Customer-facing web server"></div>
+      <div class="field"><label>Criticality</label>
+        <select name="criticality"><option value="">Auto</option>{% for c in crits %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select>
+      </div>
+      <div class="field"><label>Type</label>
+        <select name="asset_type"><option value="">Auto-detect</option>{% for t in types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}</select>
+      </div>
+      <div class="field"><label>Owner / team</label><input name="owner" placeholder="e.g. Network Team"></div>
+    </div>
+    <p class="hint">Give at least an IP or a hostname. Leaving type on Auto-detect lets Argus classify it (and protect OT gear from scanning).</p>
+    <div class="form-actions"><button class="btn primary" type="submit">Add asset</button></div>
+  </form>
+</div>
+{% endif %}
 
 {% if can_manage and zoho_status.status %}
 <div class="synced-note {{ 'ok' if zoho_status.status == 'ok' else 'err' }}">
@@ -91,6 +115,16 @@
 {% endblock %}
 {% block scripts %}
 <script>
+(function () {
+  var btn = document.getElementById('addAssetBtn');
+  var panel = document.getElementById('addAssetPanel');
+  if (btn && panel) {
+    btn.addEventListener('click', function () {
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) { var f = panel.querySelector('input[name=ip]'); if (f) f.focus(); }
+    });
+  }
+})();
 (function () {
   var rows = Array.prototype.slice.call(document.querySelectorAll('table.inv tbody tr'));
   function apply(f) {

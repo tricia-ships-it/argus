@@ -7,6 +7,10 @@
     <h1>Recipient groups</h1>
     <p class="lede">Saved lists of people you can reuse across campaigns. Build a group once (for example Finance or Executives), then pull it into a campaign when you create it or from the campaign page.</p>
   </div>
+  <div class="head-actions">
+    <a class="btn ghost" href="{{ url_for('phishing_view') }}">← Back to phishing</a>
+    <a class="btn" href="{{ url_for('phishing_new') }}">+ New campaign</a>
+  </div>
 </div>
 
 <div class="panel">
@@ -21,17 +25,21 @@
 {% if not groups %}
 <div class="empty"><h3>No groups yet</h3><p>Create one above, then add people to it.</p></div>
 {% else %}
+<p class="subhead" style="margin-top:14px">Click a group to open it.</p>
 {% for item in groups %}
-<div class="panel" style="margin-top:14px">
-  <div class="page-head" style="margin:0 0 10px">
-    <div><h2 style="margin:0">{{ item.g.name }} <span class="muted" style="font-size:13px">{{ item.members|length }} {{ 'person' if item.members|length == 1 else 'people' }}</span></h2></div>
-    <div class="head-actions">
-      <form method="post" action="{{ url_for('phishing_group_delete', gid=item.g.id) }}" style="display:inline"
-            onsubmit="return confirm('Delete the group {{ item.g.name }} and its member list?')">
-        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-        <button class="btn ghost danger sm" type="submit">Delete group</button>
-      </form>
-    </div>
+<details class="group-acc">
+  <summary>
+    <span class="group-acc-name">{{ item.g.name }}</span>
+    <span class="chip">{{ item.members|length }} {{ 'person' if item.members|length == 1 else 'people' }}</span>
+    <svg class="group-acc-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </summary>
+  <div class="group-acc-body">
+  <div class="head-actions" style="justify-content:flex-end;margin-bottom:8px">
+    <form method="post" action="{{ url_for('phishing_group_delete', gid=item.g.id) }}" style="display:inline"
+          onsubmit="return confirm('Delete the group {{ item.g.name }} and its member list?')">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn ghost danger sm" type="submit">Delete group</button>
+    </form>
   </div>
 
   {% if item.members %}
@@ -67,7 +75,8 @@
     </div>
     <div><button class="btn" type="submit">Add to {{ item.g.name }}</button></div>
   </form>
-</div>
+  </div>
+</details>
 {% endfor %}
 {% endif %}
 {% endblock %}

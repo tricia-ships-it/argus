@@ -59,9 +59,10 @@
 <div class="stats" title="Click to filter the alerts">
   <div class="stat clickable active" data-tfilter="all"><div class="n count" data-count="{{ alerts|length }}">{{ alerts|length }}</div><div class="l">Matched alerts</div></div>
   <div class="stat clickable breach" data-tfilter="kev"><div class="n count" data-count="{{ kev_count }}">{{ kev_count }}</div><div class="l">Actively exploited (KEV)</div></div>
-  <div class="stat"><div class="n count" data-count="{{ feed_count }}">{{ feed_count }}</div><div class="l">Feed records loaded</div></div>
+  <div class="stat clickable" data-tfilter="feed"><div class="n count" data-count="{{ feed_count }}">{{ feed_count }}</div><div class="l">Feed records loaded</div></div>
 </div>
 
+<div id="alertsView">
 {% if not alerts %}
 <div class="note">Good news, none of the {{ feed_count }} feed records currently match your findings or asset inventory. Re-check after your next scan or feed update.</div>
 {% else %}
@@ -95,6 +96,26 @@
   {% endfor %}
 </div>
 {% endif %}
+</div>
+
+<div id="feedView" hidden>
+  <div class="table-scroll"><table class="grid">
+    <thead><tr><th>CVE</th><th>Title</th><th>Severity</th><th>Source</th><th>Date</th><th>KEV</th></tr></thead>
+    <tbody>
+    {% for r in feed_records %}
+    <tr>
+      <td class="mono">{{ r.cve or '-' }}</td>
+      <td>{{ r.title or '-' }}</td>
+      <td class="nowrap">{% if r.severity %}<span class="risk {{ r.severity }} sm">{{ r.severity }}</span>{% else %}<span class="muted">-</span>{% endif %}</td>
+      <td class="muted">{{ r.source or '-' }}</td>
+      <td class="mono muted nowrap">{{ (r.date or '')[:10] or '-' }}</td>
+      <td class="nowrap">{% if r.kev %}<span class="kev-badge">⚠ KEV</span>{% else %}<span class="muted">-</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if feed_count > feed_records|length %}<p class="note">Showing the first {{ feed_records|length }} of {{ feed_count }} records, KEV first.</p>{% endif %}
+</div>
 {% endif %}
 
 {% endblock %}
@@ -102,7 +123,16 @@
 <script>
 (function () {
   var cards = Array.prototype.slice.call(document.querySelectorAll('.alert-card'));
+  var alertsView = document.getElementById('alertsView');
+  var feedView = document.getElementById('feedView');
   function apply(f) {
+    if (f === 'feed') {
+      if (alertsView) alertsView.hidden = true;
+      if (feedView) feedView.hidden = false;
+      return;
+    }
+    if (alertsView) alertsView.hidden = false;
+    if (feedView) feedView.hidden = true;
     cards.forEach(function (c) {
       c.style.display = (f === 'all' || (f === 'kev' && c.dataset.kev === '1')) ? '' : 'none';
     });

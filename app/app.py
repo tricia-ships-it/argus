@@ -1677,9 +1677,9 @@ def threatintel_update():
     db = get_db()
     me = auth.current_user(db)
     if get_setting(db, "ti_enabled", "0") != "1":
-        flash("Online threat-feed updates are turned off. Enable them in Settings first, "
+        flash("Online threat-feed updates are turned off. Turn them on here first, "
               "or import a feed file for air-gapped use.")
-        return redirect(url_for("settings_page"))
+        return redirect(url_for("settings_page", section="feeds"))
     proxy = get_setting(db, "ti_proxy", "") or None
     sources = _effective_sources(db)
     records, errors = [], []
@@ -1766,9 +1766,11 @@ def threatintel_view():
     assets = [dict(r) for r in db.execute("SELECT * FROM assets")]
     alerts = threatintel.match(feed, findings, assets) if feed else []
     kev_count = sum(1 for a in alerts if a["kev"])
+    # feed records for the "Feed records loaded" view: KEV first, then by date
+    feed_records = sorted(feed, key=lambda r: ((0 if r["kev"] else 1), (r.get("date") or "")))[:1000]
     return render_template("threat_alerts.html", alerts=alerts, feed_count=len(feed),
                            kev_count=kev_count, last_update=get_setting(db, "ti_last_update", ""),
-                           unhealthy=_unhealthy_sources(db),
+                           unhealthy=_unhealthy_sources(db), feed_records=feed_records,
                            enabled=(get_setting(db, "ti_enabled", "0") == "1"))
 
 
@@ -2053,6 +2055,13 @@ def phishing_campaign(cid):
     saved_groups = db.execute(
         "SELECT g.id, g.name, (SELECT COUNT(*) FROM phish_group_member m WHERE m.group_id=g.id) AS n "
         "FROM phish_group g ORDER BY g.name").fetchall()
+    # members of each saved group, so selecting one previews who it will add
+    sg_members = {}
+    for g in saved_groups:
+        sg_members[g["id"]] = [
+            {"name": m["name"], "contact": m["email"] or m["phone"] or m["handle"]}
+            for m in db.execute("SELECT name, email, phone, handle FROM phish_group_member WHERE group_id=?",
+                                (g["id"],))]
     # who is in each campaign group, for the "see members before sending" preview
     group_members = {}
     for r in recips:
@@ -2065,7 +2074,8 @@ def phishing_campaign(cid):
         is_manual=(channel in delivery.MANUAL_CHANNELS),
         job=job, pending=sending.pending_count(db, cid),
         groups=sending.campaign_groups(db, cid),
-        saved_groups=saved_groups, group_members=group_members,
+        saved_groups=saved_groups, saved_group_members=sg_members,
+        group_members=group_members,
         ext_base=url_for("phish_land", token="", _external=True))
 
 
@@ -2666,6 +2676,40 @@ def inventory_import():
     db.commit()
     auth.log_activity(db, me["id"], None, "inventory", f"imported {added} assets")
     flash(f"Imported {added} assets. Review the classifications below, OT is marked do-not-scan.")
+    return redirect(url_for("inventory"))
+
+
+@app.route("/inventory/add", methods=["POST"])
+@auth.login_required
+@auth.role_required("editor", "admin")
+def inventory_add():
+    db = get_db()
+    me = auth.current_user(db)
+    rowdict = {
+        "ip": (request.form.get("ip") or "").strip(),
+        "hostname": (request.form.get("hostname") or "").strip(),
+        "description": (request.form.get("description") or "").strip(),
+        "owner": (request.form.get("owner") or "").strip(),
+        "criticality": (request.form.get("criticality") or "").strip(),
+        "type": (request.form.get("asset_type") or "").strip(),
+    }
+    if not (rowdict["ip"] or rowdict["hostname"]):
+        flash("An asset needs at least an IP or a hostname.")
+        return redirect(url_for("inventory"))
+    a = asset_classify.classify(rowdict)
+    now = datetime.now().isoformat(timespec="seconds")
+    db.execute(
+        "INSERT INTO assets(ip, hostname, description, owner, criticality, asset_type,"
+        " scan_policy, scan_eligible, classify_reason, source, created_at, updated_at)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        (a["ip"], a["hostname"], a["description"], a["owner"], a["criticality"],
+         a["asset_type"], a["scan_policy"], a["scan_eligible"], a["classify_reason"],
+         "added manually", now, now))
+    db.commit()
+    auth.log_activity(db, me["id"], None, "inventory",
+                      f'added asset {a["hostname"] or a["ip"]}')
+    flash(f'Added {a["hostname"] or a["ip"]}.'
+          + (" Marked do-not-scan (OT)." if not a["scan_eligible"] else ""))
     return redirect(url_for("inventory"))
 
 

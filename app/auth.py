@@ -24,7 +24,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 ROLES = ["admin", "editor", "viewer"]
 ROLE_LABELS = {
     "admin": "Admin",
-    "editor": "Editor (security team)",
+    "editor": "Editor",
     "viewer": "Viewer / commenter",
 }
 ROLE_SUMMARY = {
