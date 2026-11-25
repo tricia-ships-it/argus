@@ -25,4 +25,4 @@ waitress==3.0.2
 # Optional — read-only credentialed (authenticated) scanning over SSH. Without
 # it, network scanning works as normal and credentialed audits are skipped with
 # a clear message. Install on the Argus host to enable SSH config/patch audits.
-paramiko==3.5.2
+paramiko>=3.4,<6
