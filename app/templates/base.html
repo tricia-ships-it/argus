@@ -59,16 +59,24 @@
         <svg class="um-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3 a9 9 0 0 0 0 18 Z" fill="currentColor" stroke="none"/></svg>
       </button>
       <span class="um-div" aria-hidden="true"></span>
-      <div class="um-account">
-        <span class="um-avatar">{{ (current_user.display_name or current_user.username)[:1]|upper }}</span>
-        <span class="um-id">
-          <span class="uname">{{ current_user.display_name or current_user.username }}</span>
-          <span class="urole">{{ role_labels.get(current_user.role, current_user.role) }}</span>
-        </span>
+      <div class="um-acct" id="acctWrap">
+        <button type="button" class="um-account" id="acctBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="um-avatar">{{ (current_user.display_name or current_user.username)[:1]|upper }}</span>
+          <span class="um-id">
+            <span class="uname">{{ current_user.display_name or current_user.username }}</span>
+            <span class="urole">{{ role_labels.get(current_user.role, current_user.role) }}</span>
+          </span>
+          <svg class="um-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="um-menu" id="acctMenu" hidden role="menu">
+          <div class="um-menu-head">
+            <span class="um-menu-name">{{ current_user.display_name or current_user.username }}</span>
+            {% if current_user.email %}<span class="um-menu-sub">{{ current_user.email }}</span>{% endif %}
+          </div>
+          <a href="{{ url_for('change_password') }}" class="um-menu-item" role="menuitem">Change password</a>
+          <a href="{{ url_for('logout') }}" class="um-menu-item danger" role="menuitem">Sign out</a>
+        </div>
       </div>
-      <span class="um-div" aria-hidden="true"></span>
-      <a href="{{ url_for('change_password') }}" title="Change your password" class="umlink">Password</a>
-      <a href="{{ url_for('logout') }}" class="umlink danger">Sign out</a>
     </div>
   </header>
   {% endif %}
@@ -90,6 +98,21 @@
         window.dispatchEvent(new Event('themechange'));
       });
       function save(v) { try { localStorage.setItem('vapt-theme', v); } catch (e) {} }
+    })();
+    // Account dropdown: open on click, close on outside click or Escape.
+    (function () {
+      var wrap = document.getElementById('acctWrap');
+      var btn = document.getElementById('acctBtn');
+      var menu = document.getElementById('acctMenu');
+      if (!wrap || !btn || !menu) return;
+      function close() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+      function open() { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        menu.hidden ? open() : close();
+      });
+      document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) close(); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
     })();
   </script>
   {% block scripts %}{% endblock %}

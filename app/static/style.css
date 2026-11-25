@@ -162,7 +162,25 @@ input::placeholder, textarea::placeholder { color: var(--ink-faint); }
 .um-ic { width: 15px; height: 15px; display: block; }
 .um-kbd { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: .3px; white-space: nowrap; }
 .um-div { width: 1px; height: 26px; background: var(--line); flex-shrink: 0; }
-.um-account { display: flex; align-items: center; gap: 9px; }
+.um-acct { position: relative; }
+.um-account { display: flex; align-items: center; gap: 9px; background: none; border: 0; cursor: pointer;
+  padding: 4px 6px; border-radius: 9px; color: inherit; font: inherit;
+  transition: background var(--dur-1) var(--ease); }
+.um-account:hover { background: var(--panel-2); }
+.um-caret { width: 13px; height: 13px; color: var(--ink-faint); transition: transform var(--dur-1) var(--ease); flex-shrink: 0; }
+.um-account[aria-expanded="true"] .um-caret { transform: rotate(180deg); }
+.um-menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 210px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 14px 38px -12px rgba(0,0,0,.55); padding: 6px; z-index: 40; }
+.um-menu[hidden] { display: none; }
+.um-menu-head { padding: 8px 10px 10px; border-bottom: 1px solid var(--line); margin-bottom: 6px;
+  display: flex; flex-direction: column; gap: 2px; }
+.um-menu-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.um-menu-sub { font-size: 11px; color: var(--ink-faint); word-break: break-all; }
+.um-menu-item { display: block; padding: 8px 10px; border-radius: 7px; font-size: 13px;
+  color: var(--ink-dim); text-decoration: none; transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease); }
+.um-menu-item:hover { background: var(--panel-2); color: var(--ink); text-decoration: none; }
+.um-menu-item.danger:hover { color: var(--high); background: color-mix(in srgb, var(--high) 12%, transparent); }
 .um-avatar {
   width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -491,7 +509,8 @@ body::before {
   mask-image: radial-gradient(1400px 800px at 70% -10%, #000 0%, transparent 75%);
   opacity: .6;
 }
-.wrap, .topbar { position: relative; z-index: 1; }
+.wrap { position: relative; z-index: 1; }
+.topbar { position: sticky; z-index: 30; }
 
 /* --- top bar: a status line, not just nav --- */
 .topbar {

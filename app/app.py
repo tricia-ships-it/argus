@@ -500,7 +500,14 @@ def change_password():
         elif new != confirm:
             flash("New passwords don't match.")
         else:
+            was_forced = bool(u["must_change_pw"])
             auth.set_password(db, u["id"], new)
+            if was_forced:
+                # First-login password change: sign them out so they sign back
+                # in with the new password themselves.
+                auth.logout_user()
+                flash("Password set. Please sign in with your new password.")
+                return redirect(url_for("login"))
             flash("Password updated.")
             return redirect(url_for("index"))
     return render_template("change_password.html", must_change=bool(u["must_change_pw"]))
