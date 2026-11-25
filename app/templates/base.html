@@ -185,13 +185,20 @@
       var collapse = document.getElementById('sideCollapse');
       var toggle = document.getElementById('sideToggle');
       var scrim = document.getElementById('sideScrim');
-      if (collapse) collapse.addEventListener('click', function () {
-        var now = root.classList.toggle('side-collapsed');
-        try { localStorage.setItem('argus-sidebar', now ? 'collapsed' : 'expanded'); } catch (e) {}
+      function setCollapsed(on) {
+        root.classList.toggle('side-collapsed', on);
+        try { localStorage.setItem('argus-sidebar', on ? 'collapsed' : 'expanded'); } catch (e) {}
+      }
+      function isMobile() { return window.matchMedia('(max-width: 900px)').matches; }
+      // Chevron inside the sidebar: collapse (desktop only — it's hidden when collapsed).
+      if (collapse) collapse.addEventListener('click', function () { setCollapsed(!root.classList.contains('side-collapsed')); });
+      // Top-bar menu button: always available. On desktop it collapses/expands
+      // the rail; on a phone it opens the slide-in drawer.
+      if (toggle) toggle.addEventListener('click', function () {
+        if (isMobile()) root.classList.toggle('side-open');
+        else setCollapsed(!root.classList.contains('side-collapsed'));
       });
-      function openMobile() { root.classList.add('side-open'); }
       function closeMobile() { root.classList.remove('side-open'); }
-      if (toggle) toggle.addEventListener('click', openMobile);
       if (scrim) scrim.addEventListener('click', closeMobile);
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMobile(); });
     })();
