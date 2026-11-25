@@ -2279,6 +2279,40 @@ def phishing_recipient_remove(cid, rid):
     return redirect(url_for("phishing_campaign", cid=cid))
 
 
+@app.route("/phishing/<int:cid>/edit", methods=["POST"])
+@auth.role_required("admin", "editor")
+def phishing_edit(cid):
+    """Change a draft campaign's wording and settings in place, so you can keep
+    tweaking the one you're building instead of starting a new campaign."""
+    db = get_db()
+    me = auth.current_user(db)
+    c = db.execute("SELECT * FROM phish_campaign WHERE id=?", (cid,)).fetchone()
+    if not c:
+        abort(404)
+    if c["status"] != "Draft":
+        flash("Only draft campaigns can be edited. This one is already "
+              f"{c['status'].lower()}.")
+        return redirect(url_for("phishing_campaign", cid=cid))
+    tpl = phishing.TEMPLATE_BY_KEY.get(c["template_key"], {})
+    name = (request.form.get("name") or tpl.get("name") or c["name"]).strip()[:160]
+    sender = (request.form.get("sender") or tpl.get("sender") or "").strip()[:200]
+    subject = (request.form.get("subject") or tpl.get("subject") or "").strip()[:200]
+    body = (request.form.get("body") or c["body"])[:8000]
+    landing = (request.form.get("landing_note") or "").strip()[:2000]
+    channel = request.form.get("channel", c["channel"] or "email")
+    if channel not in (delivery.CHANNELS + delivery.MANUAL_CHANNELS):
+        channel = c["channel"] or "email"
+    db.execute(
+        "UPDATE phish_campaign SET name=?, sender=?, subject=?, body=?, "
+        "landing_note=?, channel=? WHERE id=?",
+        (name, sender, subject, body, landing, channel, cid))
+    db.commit()
+    auth.log_activity(db, me["id"], None, "phishing",
+                      f"edited draft campaign '{name}'")
+    flash("Changes saved. Add or adjust recipients, then launch when ready.")
+    return redirect(url_for("phishing_campaign", cid=cid))
+
+
 @app.route("/phishing/<int:cid>/launch", methods=["POST"])
 @auth.role_required("admin", "editor")
 def phishing_launch(cid):

@@ -44,7 +44,53 @@
 </div>
 
 {% if c.status == 'Draft' %}
-<div class="note">This campaign is a draft. Add recipients below, then <strong>Launch</strong> to start recording clicks. Tracking links only count once a campaign is Active.</div>
+<div class="note">This campaign is a draft. Edit the wording below if you need to, add recipients, then <strong>Launch</strong> to start recording clicks. Tracking links only count once a campaign is Active.</div>
+{% if can_manage %}
+<details class="group-acc" style="margin-top:12px">
+  <summary>
+    <span class="group-acc-name">Edit message details</span>
+    <span class="chip">name, sender, subject, body</span>
+    <svg class="group-acc-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </summary>
+  <div class="group-acc-body">
+    <form method="post" action="{{ url_for('phishing_edit', cid=c.id) }}" class="stack" id="editForm">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="field">
+        <label for="e-name">Campaign name</label>
+        <input type="text" id="e-name" name="name" value="{{ c.name }}" maxlength="160">
+      </div>
+      <div class="field">
+        <label>Delivery channel</label>
+        <div class="chan-row">
+          <label class="chan"><input type="radio" name="channel" value="email" {{ 'checked' if channel=='email' }}><span>Email <span class="muted">(SMTP)</span></span></label>
+          <label class="chan"><input type="radio" name="channel" value="sms" {{ 'checked' if channel=='sms' }}><span>SMS <span class="muted">(Twilio)</span></span></label>
+          <label class="chan"><input type="radio" name="channel" value="whatsapp" {{ 'checked' if channel=='whatsapp' }}><span>WhatsApp <span class="muted">(limited)</span></span></label>
+          <label class="chan"><input type="radio" name="channel" value="social" {{ 'checked' if channel=='social' }}><span>Social <span class="muted">(manual)</span></span></label>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label for="e-sender">From (display)</label>
+          <input type="text" id="e-sender" name="sender" value="{{ c.sender }}" maxlength="200">
+        </div>
+        <div class="field">
+          <label for="e-subject">Subject line</label>
+          <input type="text" id="e-subject" name="subject" value="{{ c.subject }}" maxlength="200">
+        </div>
+      </div>
+      <div class="field">
+        <label for="e-body">Message body <span class="muted">use <span class="mono">{{ '{{name}}' }}</span> and <span class="mono">{{ '{{link}}' }}</span></span></label>
+        <textarea id="e-body" name="body" rows="12">{{ c.body }}</textarea>
+      </div>
+      <div class="field">
+        <label for="e-landing">Teachable-page note <span class="muted">(optional, shown to anyone who clicks)</span></label>
+        <textarea id="e-landing" name="landing_note" rows="3">{{ c.landing_note }}</textarea>
+      </div>
+      <div><button class="btn primary" type="submit">Save changes</button></div>
+    </form>
+  </div>
+</details>
+{% endif %}
 {% elif c.status == 'Active' %}
 <div class="note">Active. Export the links and send the email from your authorised mail relay, Argus does not send mail itself. Clicks appear below as they happen.</div>
 {% endif %}
