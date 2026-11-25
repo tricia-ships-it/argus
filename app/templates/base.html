@@ -201,9 +201,18 @@
       function closeMobile() { root.classList.remove('side-open'); }
       if (scrim) scrim.addEventListener('click', closeMobile);
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMobile(); });
-      // keep the current page's nav item visible in the rail after navigating
-      var active = document.querySelector('.side-link.active');
-      if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest' });
+      // Preserve the sidebar's own scroll position across page loads, so clicking
+      // a nav item doesn't make the menu jump back to the top.
+      var sb = document.getElementById('sidebar');
+      if (sb) {
+        try {
+          var y = sessionStorage.getItem('argus-side-scroll');
+          if (y !== null) sb.scrollTop = parseInt(y, 10) || 0;
+        } catch (e) {}
+        sb.addEventListener('scroll', function () {
+          try { sessionStorage.setItem('argus-side-scroll', sb.scrollTop); } catch (e) {}
+        }, { passive: true });
+      }
     })();
     // Header dropdowns (account + notifications): open on click, close on
     // outside click or Escape; opening one closes the other.
