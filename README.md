@@ -64,23 +64,75 @@ no connection from the secure box.
 |---|---|
 | `app/` | The Flask application (the whole platform). See `app/README.md` for setup, roles and deployment. |
 | `app/feedsync.py` | Standalone, fetch-only threat-feed downloader for air-gapped import. |
+| `windows/` | Windows launcher and the one-click helper that adds an Argus icon to your Desktop, Start menu and taskbar. |
 | `template/` | `build_template.py` generates the standalone Excel report template (same columns and automation as the app). |
 | `preview/` | `argus_preview.html`, a single-file interactive preview of the UI for walkthroughs and demos (no backend; data resets on refresh). |
 
-## Quick start
+## Get Argus running on your computer
+
+You do not need to be a developer to run Argus. It runs on your own machine,
+in your own browser, and nothing leaves your computer. The steps below take
+about five minutes the first time.
+
+### What you need first
+
+1. **Python 3.10 or newer.** Get it from [python.org/downloads](https://www.python.org/downloads/).
+   On the first screen of the installer, tick **"Add Python to PATH"**, then
+   finish the install.
+2. **Git** (used to download Argus). Get it from
+   [git-scm.com/downloads](https://git-scm.com/downloads). The default options
+   are fine.
+
+### Windows, the easy way
+
+1. Pick a folder where you want to keep Argus, for example your Documents
+   folder. Open that folder, click in the address bar, type `cmd`, and press
+   Enter. A black command window opens in that folder.
+2. Download Argus by pasting this line and pressing Enter:
+
+   ```
+   git clone https://github.com/tricia-ships-it/vapt-tracker.git
+   ```
+3. Open the new `vapt-tracker` folder, then open the `windows` folder inside it.
+4. Double-click **`Add Argus icon.cmd`**. This puts an **Argus** icon on your
+   Desktop and in your Start menu. It also tells you how to pin Argus to your
+   taskbar if you want it there.
+5. Double-click the **Argus** icon on your Desktop. The first time, it sets
+   itself up, which takes a minute or two, then your browser opens at
+   **http://127.0.0.1:8080**. Every time after that it starts in a few seconds.
+
+A small black window stays open while Argus is running. That window is Argus.
+Keep it open while you work, and close it when you are done to stop Argus.
+
+### Mac or Linux
+
+Open a terminal and run these lines one at a time:
 
 ```bash
-cd app
+git clone https://github.com/tricia-ships-it/vapt-tracker.git
+cd vapt-tracker/app
+python3 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
-python app.py --host 0.0.0.0 --port 8080
+python app.py --host 127.0.0.1 --port 8080
 ```
 
-On first run the app prints a one-time `admin` password to the console. Sign in,
-set a new password, then create team accounts under **Users**, and import your
-asset inventory under **Inventory**. Full instructions, roles and the
-recommendation to front it with HTTPS are in [`app/README.md`](app/README.md).
+Then open **http://127.0.0.1:8080** in your browser. To start it again later,
+run the last three lines again from the `app` folder (the `source...` line and
+the `python app.py...` line).
 
-To generate just the Excel template:
+### Setting up your account
+
+The first time you open Argus it walks you through creating your own admin
+account. After that you sign in, create accounts for your teammates under
+**Users** (they are asked to set their own password the first time they log
+in), and import your asset list under **Asset register**. More detail on roles,
+running it for a team, and putting it behind HTTPS is in
+[`app/README.md`](app/README.md).
+
+### Just the Excel template
+
+If all you want is the standalone Excel report template:
 
 ```bash
 cd template
@@ -88,26 +140,26 @@ pip install openpyxl
 python build_template.py
 ```
 
-## Development
+## For developers
 
-Contributing or self-hosting from source:
+If you want to work on Argus itself:
 
 ```bash
-# 1. Clone and enter the repo
+# Download and enter the repo
 git clone https://github.com/tricia-ships-it/vapt-tracker.git
 cd vapt-tracker/app
 
-# 2. Install dependencies and run the dev server
+# Install dependencies and run the dev server
 pip install -r requirements.txt
 python app.py --host 127.0.0.1 --port 8080
 
-# 3. Run the module self-tests
+# Run the module self-tests
 for m in phishing delivery sending scanner_checks asset_classify compliance; do
   echo "== $m =="; python3 $m.py; done
 ```
 
 The project map, coding conventions and the **security invariants** that must
-not regress are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). The phishing /
+not regress are in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md). The phishing and
 delivery architecture and roadmap are in
 [`docs/phishing-delivery.md`](docs/phishing-delivery.md).
 
